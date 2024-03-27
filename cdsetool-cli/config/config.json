@@ -1,0 +1,14 @@
+{
+    "Sentinel1": {
+        "maxRecords": "100",
+        "startDate": "2024-01-06",
+        "completionDate": "2024-01-10",
+        "box": "24.15943,38.50005,24.24733,38.55608"
+    },
+    "Sentinel2": {
+        "maxRecords": "100",
+        "startDate": "2024-01-01",
+        "completionDate": "2024-01-10",
+        "box": "24.15943,38.50005,24.24733,38.55608"
+    }
+}
