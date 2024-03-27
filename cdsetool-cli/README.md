@@ -39,7 +39,7 @@ docker run -it \
 -v [./data]:/app/data \
 -v [./config/config.json]:/app/config/config.json \
 --env-file .env.list \
-cdsettool-cli -d -v config.json
+cdsetool-cli -d -v config.json
 ```
 
 Please note that in the aforementioned command you can replace:
@@ -52,7 +52,7 @@ docker run -it \
 -v ./data/this_date:/app/data \
 -v ./config/config_for_december.json:/app/config/config.json \
 --env-file .env.list \
-cdsettool-cli -d -v config.json
+cdsetool-cli -d -v config.json
 ```
 
 ## Config file parameters
