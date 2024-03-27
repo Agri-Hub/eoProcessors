@@ -37,11 +37,10 @@ def download_data(config_file, verbose):
         download_path = "/app/data"
         features = list(query_features(satellite, search_terms))
 
-        list(download_features(
-            features,
-            download_path,
-            {
-                "concurrency": 4,
-                "monitor": monitor,
-                "credentials": credentials
-            }))
+        list(
+            download_features(
+                features,
+                download_path,
+                {"concurrency": 4, "monitor": monitor, "credentials": credentials},
+            )
+        )
