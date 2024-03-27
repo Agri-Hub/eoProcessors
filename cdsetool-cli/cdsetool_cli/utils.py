@@ -7,14 +7,6 @@ from cdsetool.query import describe_collection
 from cdsetool.download import download_features
 from cdsetool.credentials import Credentials
 from cdsetool.monitor import StatusMonitor
-""" Available Satellites:
-    "Sentinel1",
-    "Sentinel2",
-    "Sentinel3",
-    "Sentinel5P",
-    "Sentinel6",
-    "Sentinel1RTC"
-"""
 
 
 def available_parameters(config_file):
