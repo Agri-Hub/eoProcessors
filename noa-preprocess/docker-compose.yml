@@ -1,0 +1,11 @@
+name: noaharvester
+services:
+  app:
+    image: noaharvester:latest
+    build:
+      context: .
+    working_dir: /app    
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+    command: python /app/noapreprocess/cli.py --help

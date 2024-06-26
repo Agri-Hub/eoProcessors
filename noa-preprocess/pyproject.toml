@@ -5,20 +5,17 @@ requires = ["setuptools>=69.1.1"]  # PEP 508 specifications.
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "noaharvester"
+name = "noapreprocess"
 authors = [
     {name = "NOA - Beyond"}
 ]
-description = "Earth Observation data harvester from various sources/hubs"
+description = "Earth Observation data pre-processing, treating data to be ingested"
 requires-python = ">=3.11.8"
 dependencies = [
     "build>=1.1.1",
     "click>=8.1.7",
-    "cdsetool>=0.2.8",
-    "earthaccess>=0.9.0",
     "pyproj>=3.6.1",
-    "pyshp>=2.3.1",
-    "pystac-client>=0.8.2"
+    "pyshp>=2.3.1"
 ]
 keywords = [
     "data pipelines",
@@ -42,14 +39,14 @@ test = [
 ]
 
 [project.scripts]
-noaharvester = "noaharvester:cli"
+noapreprocess = "noapreprocess:cli"
 
 [tool.setuptools.packages.find]
-include = ["noaharvester*"]
+include = ["noapreprocess*"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.md", content-type = "text/markdown"}
-version = {attr = "noaharvester.__version__"}
+version = {attr = "noapreprocess.__version__"}
 
 [tool.pytest.ini_options]
 addopts="""
@@ -57,7 +54,7 @@ addopts="""
 --cov-config pyproject.toml \
 --cov-report xml:coverage.xml \
 --cov-report term-missing \
---cov noaharvester \
+--cov noapreprocess \
 --cov tests \
 --no-cov-on-fail \
 -ra \
