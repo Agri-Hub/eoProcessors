@@ -1,0 +1,11 @@
+name: noapostaggregate
+services:
+  app:
+    image: noapostaggregate:latest
+    build:
+      context: .
+    working_dir: /app    
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+    command: python /app/noapostaggregate/cli.py --help
