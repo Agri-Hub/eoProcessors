@@ -1,0 +1,6 @@
+stactools==0.5.3
+stactools-sentinel1==0.8.0
+stactools-sentinel2==0.6.4
+stactools-sentinel3==0.4.0
+stactools-modis==0.3.0a0
+stactools-landsat==0.5.0
