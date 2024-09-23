@@ -5,12 +5,13 @@ from various data sources.
 """
 
 from __future__ import annotations
+import os
 import sys
 import logging
 from pathlib import Path
 
 import click
-from click import Argument  # , Option
+from click import Argument, Option
 
 # Appending the module path in order to have a kind of cli "dry execution"
 sys.path.append(str(Path(__file__).parent / ".."))
@@ -38,9 +39,10 @@ def cli(log):
 
 
 @cli.command(help="Create STAC Item from SAFE filename")
-@click.argument("input", required=True)
+@click.argument("input_path", required=True)
 @click.argument("config", required=False)
-def create_item(input_path: Argument | str, config: Argument | str) -> None:
+@click.option("--recursive", "-r", is_flag=True, help="Ingest all files under path")
+def create_item(input_path: Argument | str, config: Argument | str, recursive: Option | bool) -> None:
     """
     Instantiate Ingest Class and call "create_item"
 
@@ -53,8 +55,16 @@ def create_item(input_path: Argument | str, config: Argument | str) -> None:
         logger.debug("Cli STAC creation using config file: %s", config)
 
     ingestor = ingest.Ingest(config=config)
-    click.echo("Ingesting single item from file\n")
-    ingestor.single_item(input_path)
+
+    if recursive:
+        click.echo(f"Ingesting items in path {input_path}\n")
+        for single_item in os.listdir(input_path):
+            item = Path(input_path, single_item)
+            if item.is_dir():
+                ingestor.single_item(item)
+    else:
+        click.echo("Ingesting single item from file\n")
+        ingestor.single_item(Path(input_path))
 
 
 if __name__ == "__main__":  # pragma: no cover
