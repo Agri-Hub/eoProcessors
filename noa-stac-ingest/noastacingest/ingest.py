@@ -33,7 +33,6 @@ class Ingest:
         if path.name.endswith(FILETYPES):
             platform = str(path.name).split("_")[0]
             satellite = platform[:2]
-            print(satellite)
             item = {}
             match satellite:
                 case "S1":
@@ -47,7 +46,8 @@ class Ingest:
                             item = create_item_s1_slc(str(path))
                 case "S2":
                     item = create_item_s2(str(path))
-                # case "S3"
+                case "S3":
+                    item = create_item_s3(str(path))
             json_file_path = str(Path(path.parent, str(path.name) + ".STAC.json"))
             print(json_file_path)
             # Save the item as a JSON file
