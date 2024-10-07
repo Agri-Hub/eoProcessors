@@ -28,7 +28,8 @@ class Harvester:
         output_path: str = None,
         shape_file: str = None,
         verbose: bool = False,
-        bbox_only: bool = False
+        bbox_only: bool = False,
+        from_uri: bool = False
     ) -> Harvester:
         """
         Harvester class. Constructor reads and loads the search items json file.
@@ -53,17 +54,23 @@ class Harvester:
         with open(config_file, encoding="utf8") as f:
             self._config = json.load(f)
 
-        for item in self._config:
-            if self._shape_file_bbox_list:
-                for bbox in self._shape_file_bbox_list:
-                    sub_item = deepcopy(item)
-                    sub_item["search_terms"]["box"] = str(bbox).strip()[1:-1]
-                    self._search_items.append(sub_item)
-                    logger.debug("Appending search item: %s", sub_item)
-            else:
-                self._search_items.append(item)
-                logger.debug("Appending search item: %s", item)
+        if from_uri:
+            pass
+        else:
+            for item in self._config:
+                if self._shape_file_bbox_list:
+                    for bbox in self._shape_file_bbox_list:
+                        sub_item = deepcopy(item)
+                        sub_item["search_terms"]["box"] = str(bbox).strip()[1:-1]
+                        self._search_items.append(sub_item)
+                        logger.debug("Appending search item: %s", sub_item)
+                else:
+                    self._search_items.append(item)
+                    logger.debug("Appending search item: %s", item)
         logger.debug("Total search items: %s", len(self._search_items))
+
+    def download_from_uri_list(self) -> None:
+        pass
 
     def query_data(self) -> None:
         """
