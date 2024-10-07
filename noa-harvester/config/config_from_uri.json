@@ -1,0 +1,12 @@
+[
+    {
+        "copernicus_login": "",
+        "copernicus_password": "",
+        "earthdata_login": "",
+        "earthdata_password": "",
+        "db_uri": "",
+        "db_name": "",
+        "db_username": "",
+        "db_password": ""
+    }
+]
