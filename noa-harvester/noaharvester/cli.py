@@ -125,8 +125,8 @@ def download(
     is_flag=True,
     help="Shows the progress indicator (for Copernicus only)",
 )
-@click.argument("config_file", required=True)
 @click.argument("provider", required=True)
+@click.argument("config_file", required=True)
 @click.option("--output_path", default="./data", help="Output path")
 @click.option("--uri", "-u", multiple=True)
 def from_uri_list(
