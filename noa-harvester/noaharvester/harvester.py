@@ -69,8 +69,10 @@ class Harvester:
                     logger.debug("Appending search item: %s", item)
         logger.debug("Total search items: %s", len(self._search_items))
 
-    def download_from_uri_list(self) -> None:
-        pass
+    def download_from_uri_list(self, uri) -> None:
+        print(uri)
+        for single_item in uri:
+            pass
 
     def query_data(self) -> None:
         """

@@ -126,10 +126,14 @@ def download(
     help="Shows the progress indicator (for Copernicus only)",
 )
 @click.argument("config_file", required=True)
+@click.argument("provider", required=True)
 @click.option("--output_path", default="./data", help="Output path")
+@click.option("--uri", "-u", multiple=True)
 def from_uri_list(
     config_file: Argument | str,
+    provider: Argument | str,
     output_path: Option | str,
+    uri: Option | tuple[str],
     verbose: Option | bool,
 ) -> None:
     """
@@ -139,6 +143,9 @@ def from_uri_list(
     Parameters:
         config_file (click.Argument | str): config json file listing
             providers, collections and search terms
+        provider (click.Argument | str): provider to download from
+        output_path (click.Option | str): where to download to
+        uri (click.Option | tuple[str]): A tuple of uris to download
         verbose (click.Option | bool): to show download progress indicator or not.
     """
     if config_file:
@@ -152,7 +159,9 @@ def from_uri_list(
             verbose=verbose,
             from_uri=True
         )
-        harvest.download_from_uri_list()
+        # TODO either make it public or provide a public interface
+        harvest._resolve_provider_instance(provider)
+        harvest.download_from_uri_list(uri)
         click.echo("Done.\n")
 
 
