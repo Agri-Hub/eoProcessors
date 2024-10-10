@@ -159,9 +159,7 @@ def from_uri_list(
             verbose=verbose,
             from_uri=True
         )
-        # TODO either make it public or provide a public interface
-        harvest._resolve_provider_instance(provider)
-        harvest.download_from_uri_list(uri)
+        harvest.download_from_uri_list(uri, provider)
         click.echo("Done.\n")
 
 

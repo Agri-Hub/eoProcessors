@@ -44,6 +44,12 @@ class DataProvider(ABC):
         """
 
     @abstractmethod
+    def single_download(self, uri):
+        """
+        Download of a single item, provided only its uri.
+        """
+
+    @abstractmethod
     def describe(self, collection):
         """
         Describe available collection query parameters.

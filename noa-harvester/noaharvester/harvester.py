@@ -69,10 +69,14 @@ class Harvester:
                     logger.debug("Appending search item: %s", item)
         logger.debug("Total search items: %s", len(self._search_items))
 
-    def download_from_uri_list(self, uri) -> None:
+    def download_from_uri_list(self, uri, provider) -> None:
+        """
+        Utilize the minimum provider interface for downloading single items
+        """
         print(uri)
         for single_item in uri:
-            pass
+            download_provider = self._resolve_provider_instance(provider)
+            download_provider.single_download(single_item)
 
     def query_data(self) -> None:
         """

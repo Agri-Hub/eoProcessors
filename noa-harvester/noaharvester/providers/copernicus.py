@@ -9,7 +9,7 @@ import click
 from cdsetool.credentials import Credentials
 from cdsetool.monitor import StatusMonitor
 from cdsetool.query import query_features, describe_collection
-from cdsetool.download import download_features
+from cdsetool.download import download_features, download_feature
 
 from noaharvester.providers import DataProvider
 
@@ -86,6 +86,40 @@ class Copernicus(DataProvider):
         click.echo(f"{collection}:\n {search_terms}\n")
 
         return collection, list(search_terms)
+
+    def single_download(self, uri: str) -> tuple[str, int]:
+        """
+        Utilize the minimum CSETool interface for downloading single items.
+        CDSETool utilizes url and title of the Feature and also some optional
+        values from Options.
+        """
+        url = uri.split(":")[0]
+        title = uri.split(":")[1]
+        feature = {
+            "properties": {
+                "title": title,
+                "services": {
+                    "download": {
+                        "url": url
+                    }
+                }
+            }
+        }
+
+        # TODO decide what to do with credentials
+        options = {
+            "logger": None,
+            "tmpdir": None,
+            "monitor": None,
+            "credentials": {
+                "username": "",
+                "password": ""
+            },
+            "proxies": None
+        }
+
+        download_feature(feature=feature, path=self._download_path, options=options)
+
 
     def download(self, item: dict) -> tuple[str, int]:
         """
