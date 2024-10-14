@@ -1,4 +1,4 @@
-cdsetool==0.2.12
+cdsetool==0.2.13
 click==8.1.7
 earthaccess==0.9.0
 pyproj==3.6.1
