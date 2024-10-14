@@ -63,6 +63,11 @@ class Earthdata(DataProvider):
         click.echo(f"Available items for {item['collection']}: {len(results)}")
         return item["collection"], len(results)
 
+    def single_download(self, uri: str) -> tuple[str, int]:
+        logger.error("Not implemented for Earthdata provider")
+        pass
+
+
     def download(self, item: dict) -> tuple[str, int]:
         """
         Download from Earthdata from item["collection"] the item["search_terms"]] items.

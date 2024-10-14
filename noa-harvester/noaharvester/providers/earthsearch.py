@@ -55,6 +55,10 @@ class Earthsearch(DataProvider):
         click.echo(f"Available items for {item['collection']}: {len(results.items)}")
         return item["collection"], len(results.items)
 
+    def single_download(self, uri: str) -> tuple[str, int]:
+        logger.error("Not implemented for Earthsearch provider")
+        pass
+
     def download(self, item: dict) -> tuple[str, int]:
         """
         Download is using a concurrent http connections setting of 8 threads and stored in local execution
