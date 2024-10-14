@@ -119,6 +119,8 @@ class Copernicus(DataProvider):
         }
 
         download_feature(feature=feature, path=self._download_path, options=options)
+        # TODO Verify checksum
+        # TODO return downloaded path
 
 
     def download(self, item: dict) -> tuple[str, int]:

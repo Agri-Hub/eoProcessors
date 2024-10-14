@@ -74,9 +74,15 @@ class Harvester:
         Utilize the minimum provider interface for downloading single items
         """
         print(uri)
+        downloaded_items = []
         for single_item in uri:
             download_provider = self._resolve_provider_instance(provider)
-            download_provider.single_download(single_item)
+            downloaded_item = download_provider.single_download(single_item)
+            downloaded_items.append(downloaded_item)
+        for downloaded_item in downloaded_items:
+            # TODO insert entry to db (check if needed check is in this part)
+            pass
+
 
     def query_data(self) -> None:
         """
