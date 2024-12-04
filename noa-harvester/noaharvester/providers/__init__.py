@@ -25,7 +25,10 @@ class DataProvider(ABC):
         """
         if not output_path:
             output_path = "./data"
-        self._download_path = Path(output_path).resolve()
+        if not output_path.startswith("s3"):
+            self._download_path = Path(output_path).resolve()
+        else:
+            self._download_path = output_path
 
     # @property
     # def config(self):
