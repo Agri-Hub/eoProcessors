@@ -135,7 +135,8 @@ class Copernicus(DataProvider):
         downloaded_files = []
         logger.debug("Download search terms: %s", item["search_terms"])
 
-        self._download_path.mkdir(parents=True, exist_ok=True)
+        if not str(self._download_path).startswith("s3"):
+            self._download_path.mkdir(parents=True, exist_ok=True)
 
         features = list(query_features(item["collection"], item["search_terms"]))
         initial_query_return = len(features)
