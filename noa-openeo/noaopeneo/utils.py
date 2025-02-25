@@ -18,6 +18,8 @@ def get_bbox_from_shp(shp_path: str, bbox_only: bool) -> list:
     Returns:
         [west, south, east, north] (list(float)): Bounding box coordinates.
     """
+    # TODO revise that: spatial_extent cannot receive list. It should either be an
+    # iteration on individual shapes in cli or join them in a dict
 
     bboxes = []
     shp_path_shape = shp_path + ".shp"
@@ -41,7 +43,7 @@ def get_bbox_from_shp(shp_path: str, bbox_only: bool) -> list:
         north, east = transformer.transform(
             maxx, maxy
         )  # pylint:disable=unpacking-non-sequence
-        bboxes.append([west, south, east, north])
+        bboxes = [west, south, east, north]
     else:
         logger.debug("Total polygons: %s", len(sf.shapeRecords()))
         for single_shape in sf.shapeRecords():
