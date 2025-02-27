@@ -4,10 +4,52 @@ Aggregate
 import datetime
 import os
 from openeo import Connection
+from pathlib import Path
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def mask_and_complete(connection: Connection, start_date, end_date, shape, max_cloud_cover):
+
+    bands = ["B02", "B03", "B04", "SCL"]
+    visual_bands = ["B02", "B03", "B04"]
+
+    s2_cube = connection.load_collection(
+        collection_id="SENTINEL2_L2A",
+        spatial_extent=shape,
+        temporal_extent=[start_date, end_date],
+        bands=bands,
+        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)}
+    )
+
+    scl_cube = s2_cube.band("SCL")
+
+    # Cloudy pixels are identified as where SCL is 3, 8, 9, or 10.
+    # Here we assume that the client overloads comparison operators and bitwise OR (|) for boolean operations.
+    cloud_mask = (scl_cube == 3) | (scl_cube == 8) | (scl_cube == 9) | (scl_cube == 10)
+
+    for band in visual_bands:
+
+        # 5. Apply the mask to the B04 cube (masking cloudy pixels by setting them to no-data).
+        masked_band = s2_cube.band(band).mask(cloud_mask, replacement=None)
+
+        # 6. Reduce the time dimension to create a composite.
+        # For example, use a median reducer over time.
+        composite = masked_band.reduce_dimension(
+            dimension="t",
+            reducer="median"  # or use a custom reducer if needed
+        )
+        filled = composite.apply("linear_interpolation")
+        output_dir = "cloud_free_composites"
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif")
+        # s2_cube.save_result(format="GTiff")
+        # Execute
+        filled.execute_batch(output_file, out_format="GTiff")
+
+        logger.info("Saved: %s ", output_file)
 
 
 def month_median(connection: Connection, start_date, end_date, shape, max_cloud_cover):
@@ -37,20 +79,20 @@ def month_median(connection: Connection, start_date, end_date, shape, max_cloud_
             bands=visual_bands,
             properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)}
         )
-    s2_cube = s2_cube.mask(cloud_mask)
+    s2_cube = s2_cube.merge_cubes(cloud_mask)
 
     for band in visual_bands:
 
         band_cube = s2_cube.band(band)
-        band_cube_aggregate = band_cube.aggregate_temporal_period(
-            period="month",
-            reducer="mean"
-        )
-
         # Fill gaps in the data using linear interpolation
-        band_cube_interpolation = band_cube_aggregate.apply_dimension(
+        band_cube_interpolation = band_cube.apply_dimension(
             dimension="t",
             process="array_interpolate_linear"
+        )
+
+        band_cube_aggregate = band_cube_interpolation.aggregate_temporal_period(
+            period="month",
+            reducer="median"
         )
 
         output_dir = "cloud_free_composites"
@@ -58,7 +100,7 @@ def month_median(connection: Connection, start_date, end_date, shape, max_cloud_
         output_file = os.path.join(output_dir, f"{band}_{start_date}_{end_date}.tif")
         # s2_cube.save_result(format="GTiff")
         # Execute
-        band_cube_interpolation.execute_batch(output_file, out_format="GTiff")
+        band_cube_aggregate.execute_batch(output_file, out_format="GTiff")
 
         logger.info("Saved: %s ", output_file)
 
