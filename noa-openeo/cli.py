@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import logging
+import requests
 from pathlib import Path
 
 import click
@@ -16,7 +17,7 @@ from click import Argument, Option
 
 import openeo
 
-from noaopeneo.monthly_median import month_median
+from noaopeneo.monthly_median import mask_and_complete
 from noaopeneo import utils
 
 # Appending the module path in order to have a kind of cli "dry execution"
@@ -98,7 +99,7 @@ def cfmc(
 
     max_cloud_cover = _config["max_cloud_cover"]
 
-    month_median(
+    mask_and_complete(
         connection,
         _config["start_date"],
         _config["end_date"],
@@ -149,6 +150,52 @@ def job_delete(job_id: Argument | str,):
         client_secret=client_secret
     )
     print(connection.delete(f"/jobs/{job_id}", expected_status=204))
+
+
+@cli.command(
+    help=(
+        "Job job_get_assets"
+    )
+)
+@click.argument("job_id", required=True)
+def job_get_assets(job_id: Argument | str,):
+    """ Please get the job assets and download them """
+    logger.debug("Trying to connect to cdse openeo")
+    # client id: env: OPENEO_CLIENT_ID
+    # client secret: env: OPENEO_CLIENT_SECRET
+    client_id = os.getenv("OPENEO_CLIENT_ID", None)
+    client_secret = os.getenv("OPENEO_CLIENT_SECRET", None)
+    connection = openeo.connect(
+        "https://openeo.dataspace.copernicus.eu"
+    ).authenticate_oidc_client_credentials(
+        client_id=client_id,
+        client_secret=client_secret
+    )
+
+    job = connection.job(job_id)
+
+    # Get result assets (download links)
+    results = job.get_results()
+    assets = results.get_assets()
+
+    # Download each asset
+    downloaded_files = []
+    output_dir = "cloud_free_composites"
+    os.makedirs(output_dir, exist_ok=True)
+    for asset in assets:
+        asset_url = asset.href
+        local_filename = os.path.join(output_dir, asset.name)
+
+        print(f"Downloading {asset.name}...")
+        response = requests.get(asset_url, stream=True, timeout=3600)
+        response.raise_for_status()
+
+        with open(local_filename, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+
+        downloaded_files.append(local_filename)
+        print(f"Downloaded: {local_filename}")
 
 
 if __name__ == "__main__":  # pragma: no cover
