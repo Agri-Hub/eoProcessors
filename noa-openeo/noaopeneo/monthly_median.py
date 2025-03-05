@@ -28,12 +28,17 @@ def mask_and_complete(connection: Connection, start_date, end_date, shape, max_c
 
     # Cloudy pixels are identified as where SCL is 3, 8, 9, or 10.
     # Here we assume that the client overloads comparison operators and bitwise OR (|) for boolean operations.
-    cloud_mask = (scl_cube == 3) | (scl_cube == 8) | (scl_cube == 9) | (scl_cube == 10)
+    # [0, 1, 2, 3, 7, 8, 9, 10]
+    cloud_mask = (
+        (scl_cube == 0) | (scl_cube == 1) | (scl_cube == 2) | (scl_cube == 3) |
+        (scl_cube == 7) | (scl_cube == 8) | (scl_cube == 9) | (scl_cube == 10)
+    )
 
     for band in visual_bands:
 
         # 5. Apply the mask to the B04 cube (masking cloudy pixels by setting them to no-data).
         masked_band = s2_cube.band(band).mask(cloud_mask, replacement=None)
+        not_masked_band = s2_cube.band(band)
 
         # 6. Reduce the time dimension to create a composite.
         # For example, use a median reducer over time.
@@ -41,13 +46,20 @@ def mask_and_complete(connection: Connection, start_date, end_date, shape, max_c
             dimension="t",
             reducer="median"  # or use a custom reducer if needed
         )
-        filled = composite.apply("linear_interpolation")
+        not_masked_composite = not_masked_band.reduce_dimension(
+            dimension="t",
+            reducer="median"  # or use a custom reducer if needed
+        )
+        # filled = composite.apply("linear_interpolation")
+
         output_dir = "cloud_free_composites"
         os.makedirs(output_dir, exist_ok=True)
         output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif")
+        output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
         # s2_cube.save_result(format="GTiff")
         # Execute
-        filled.execute_batch(output_file, out_format="GTiff")
+        composite.execute_batch(output_file, out_format="GTiff")
+        not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
 
         logger.info("Saved: %s ", output_file)
 
