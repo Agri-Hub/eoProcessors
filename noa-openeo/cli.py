@@ -132,6 +132,27 @@ def job_info(job_id: Argument | str,):
 
 @cli.command(
     help=(
+        "List Jobs"
+    )
+)
+def job_list():
+    """ Please get the job info """
+    logger.debug("Trying to connect to cdse openeo")
+    # client id: env: OPENEO_CLIENT_ID
+    # client secret: env: OPENEO_CLIENT_SECRET
+    client_id = os.getenv("OPENEO_CLIENT_ID", None)
+    client_secret = os.getenv("OPENEO_CLIENT_SECRET", None)
+    connection = openeo.connect(
+        "https://openeo.dataspace.copernicus.eu"
+    ).authenticate_oidc_client_credentials(
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    print(connection.list_jobs())
+
+
+@cli.command(
+    help=(
         "Job delete"
     )
 )
