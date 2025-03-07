@@ -10,7 +10,9 @@ from openeo import Connection
 
 import logging
 
-logger = logging.getLogger(__name__)
+log_filename = f"openeo_log_{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log"
+logging.basicConfig(filename=log_filename, level=logging.INFO,
+                    format='%(asctime)s - %(message)s')
 
 
 def monthly_median_daydelta(
@@ -100,7 +102,8 @@ def mask_and_complete(
     masked_cube = s2_cube.mask(cloud_mask, replacement=None)
 
     for band in bands:
-        print(f"Trying band {band} from {start_date} to {end_date}")
+        logging.info("%s %s %s - START", band, start_date, end_date)
+        print(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Trying band {band} from {start_date} to {end_date}")
         masked_band = masked_cube.band(band)
         # not_masked_band = masked_cube.band(band)
 
@@ -125,10 +128,15 @@ def mask_and_complete(
             composite.execute_batch(output_file, out_format="GTiff")
         except RuntimeError as e:
             print("something went wrong: %e", e)
-            logger.error("something went wrong: %s ", e)
+            logging.error("something went wrong: %s ", e)
             continue
         # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
-        logger.info("Saved: %s ", output_file)
+        logging.info(
+            band,
+            start_date,
+            end_date,
+            output_file
+        )
 
     # Compute probability composites (mean occurrence over time)
     # cloud_probability = cloud_mask.reduce_dimension(dimension="t", reducer="mean")
