@@ -17,7 +17,7 @@ from click import Argument, Option
 
 import openeo
 
-from noaopeneo.monthly_median import mask_and_complete
+from noaopeneo.monthly_median import monthly_median_daydelta
 from noaopeneo import utils
 
 # Appending the module path in order to have a kind of cli "dry execution"
@@ -64,7 +64,7 @@ def cfmc(
     config_file: Argument | str,
     shape_file: Argument | str,
     output_path: Option | str,
-    bbox_only: Option | bool
+    bbox_only: Option | bool,
 ) -> None:
     """
     Produces cloud free monthly composite for given bbox or shape.
@@ -93,29 +93,27 @@ def cfmc(
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
 
     max_cloud_cover = _config["max_cloud_cover"]
 
-    mask_and_complete(
+    monthly_median_daydelta(
         connection,
         _config["start_date"],
         _config["end_date"],
         shape,
-        max_cloud_cover=max_cloud_cover
+        max_cloud_cover,
+        day_delta=10,
     )
 
 
-@cli.command(
-    help=(
-        "Job info"
-    )
-)
+@cli.command(help=("Job info"))
 @click.argument("job_id", required=True)
-def job_info(job_id: Argument | str,):
-    """ Please get the job info """
+def job_info(
+    job_id: Argument | str,
+):
+    """Please get the job info"""
     logger.debug("Trying to connect to cdse openeo")
     # client id: env: OPENEO_CLIENT_ID
     # client secret: env: OPENEO_CLIENT_SECRET
@@ -124,19 +122,14 @@ def job_info(job_id: Argument | str,):
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
     print(connection.get(f"/jobs/{job_id}", expected_status=200).json())
 
 
-@cli.command(
-    help=(
-        "List Jobs"
-    )
-)
+@cli.command(help=("List Jobs"))
 def job_list():
-    """ Please get the job info """
+    """Please get the job info"""
     logger.debug("Trying to connect to cdse openeo")
     # client id: env: OPENEO_CLIENT_ID
     # client secret: env: OPENEO_CLIENT_SECRET
@@ -145,20 +138,17 @@ def job_list():
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
     print(connection.list_jobs())
 
 
-@cli.command(
-    help=(
-        "Job delete"
-    )
-)
+@cli.command(help=("Job delete"))
 @click.argument("job_id", required=True)
-def job_delete(job_id: Argument | str,):
-    """ Please get the job info """
+def job_delete(
+    job_id: Argument | str,
+):
+    """Please get the job info"""
     logger.debug("Trying to connect to cdse openeo")
     # client id: env: OPENEO_CLIENT_ID
     # client secret: env: OPENEO_CLIENT_SECRET
@@ -167,20 +157,17 @@ def job_delete(job_id: Argument | str,):
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
     print(connection.delete(f"/jobs/{job_id}", expected_status=204))
 
 
-@cli.command(
-    help=(
-        "Job job_get_assets"
-    )
-)
+@cli.command(help=("Job job_get_assets"))
 @click.argument("job_id", required=True)
-def job_get_assets(job_id: Argument | str,):
-    """ Please get the job assets and download them """
+def job_get_assets(
+    job_id: Argument | str,
+):
+    """Please get the job assets and download them"""
     logger.debug("Trying to connect to cdse openeo")
     # client id: env: OPENEO_CLIENT_ID
     # client secret: env: OPENEO_CLIENT_SECRET
@@ -189,8 +176,7 @@ def job_get_assets(job_id: Argument | str,):
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
 
     job = connection.job(job_id)
@@ -219,14 +205,12 @@ def job_get_assets(job_id: Argument | str,):
         print(f"Downloaded: {local_filename}")
 
 
-@cli.command(
-    help=(
-        "Job job_get_assets"
-    )
-)
+@cli.command(help=("Job job_get_assets"))
 @click.argument("job_id", required=True)
-def job_assets_info(job_id: Argument | str,):
-    """ Get the job assets info (url mainly) """
+def job_assets_info(
+    job_id: Argument | str,
+):
+    """Get the job assets info (url mainly)"""
     logger.debug("Trying to connect to cdse openeo")
     # client id: env: OPENEO_CLIENT_ID
     # client secret: env: OPENEO_CLIENT_SECRET
@@ -235,8 +219,7 @@ def job_assets_info(job_id: Argument | str,):
     connection = openeo.connect(
         "https://openeo.dataspace.copernicus.eu"
     ).authenticate_oidc_client_credentials(
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=client_id, client_secret=client_secret
     )
 
     job = connection.job(job_id)
