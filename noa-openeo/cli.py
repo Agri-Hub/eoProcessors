@@ -59,7 +59,7 @@ def cli(log):
 )
 @click.argument("config_file", required=True)
 @click.argument("shape_file", required=True)
-@click.option("--output_path", default="./data", help="Output path")
+@click.option("--output_path", default="", help="Output path")
 def cfmc(
     config_file: Argument | str,
     shape_file: Argument | str,
@@ -104,7 +104,8 @@ def cfmc(
         _config["end_date"],
         shape,
         max_cloud_cover,
-        day_delta=10,
+        day_delta=_config["day_delta"],
+        output_path=output_path
     )
 
 
