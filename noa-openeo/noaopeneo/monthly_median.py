@@ -20,14 +20,15 @@ def monthly_median_daydelta(
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
     print(f"====== Cloud free composites from {start_date} to {end_date} ======")
-    current_date = start_date.replace(day=1) - timedelta(days=day_delta)  # Move to the first day of the start month
-    while current_date + timedelta(days=day_delta) <= end_date:
-        month_start = current_date + timedelta(days=day_delta)
+
+    current_date = start_date.replace(day=1)  # Move to the first day of the start month
+    while current_date <= end_date:
+        month_start = current_date
         month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
         # Expand range by 10 days before and after
-        start_range = max(month_start - timedelta(days=day_delta), start_date)
-        end_range = min(month_end + timedelta(days=day_delta), end_date)
+        start_range = month_start - timedelta(days=day_delta)
+        end_range = month_end + timedelta(days=day_delta)
 
         print(
             f"Cloud free composites from {start_range.strftime("%Y-%m-%d")} to {end_range.strftime("%Y-%m-%d")}"
@@ -42,7 +43,7 @@ def monthly_median_daydelta(
         )
 
         # Move to the next month
-        current_date += relativedelta(months=1) - timedelta(days=day_delta)
+        current_date += relativedelta(months=1)
 
 
 def mask_and_complete(
@@ -60,7 +61,6 @@ def mask_and_complete(
         "B08",
         "B8A",
         "B09",
-        "B10",
         "B11",
         "B12",
     ]
