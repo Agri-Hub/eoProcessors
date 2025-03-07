@@ -99,6 +99,7 @@ def mask_and_complete(
     masked_cube = s2_cube.mask(cloud_mask, replacement=None)
 
     for band in bands:
+        print(f"Trying band {band} from {start_date} to {end_date}")
         masked_band = masked_cube.band(band)
         # not_masked_band = masked_cube.band(band)
 
@@ -119,8 +120,12 @@ def mask_and_complete(
             output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
         )
         # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
-
-        composite.execute_batch(output_file, out_format="GTiff")
+        try:
+            composite.execute_batch(output_file, out_format="GTiff")
+        except RuntimeError as e:
+            print("something went wrong: %e", e)
+            logger.error("something went wrong: %s ", e)
+            continue
         # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
         logger.info("Saved: %s ", output_file)
 
