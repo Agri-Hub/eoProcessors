@@ -1,5 +1,6 @@
 {
-    "start_date": "2021-12-15",
-    "end_date": "2022-02-15",
-    "max_cloud_cover": 20
+    "start_date": "2017-01-01",
+    "end_date": "2025-02-28",
+    "max_cloud_cover": 20,
+    "day_delta": 15
 }

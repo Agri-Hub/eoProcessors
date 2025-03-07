@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 def monthly_median_daydelta(
-    connection, start_date, end_date, shape, max_cloud_cover, day_delta
+    connection, start_date, end_date, shape, max_cloud_cover, day_delta, output_path
 ):
     """Iterates over each month in the range and calls process_dates with expanded range."""
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
     print(f"====== Cloud free composites from {start_date} to {end_date} ======")
-    current_date = start_date.replace(day=1)  # Move to the first day of the start month
-    while current_date <= end_date:
-        month_start = current_date
+    current_date = start_date.replace(day=1) - timedelta(days=day_delta)  # Move to the first day of the start month
+    while current_date + timedelta(days=day_delta) <= end_date:
+        month_start = current_date + timedelta(days=day_delta)
         month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
         # Expand range by 10 days before and after
@@ -38,14 +38,15 @@ def monthly_median_daydelta(
             end_range.strftime("%Y-%m-%d"),
             shape,
             max_cloud_cover,
+            output_path
         )
 
         # Move to the next month
-        current_date += relativedelta(months=1)
+        current_date += relativedelta(months=1) - timedelta(days=day_delta)
 
 
 def mask_and_complete(
-    connection: Connection, start_date, end_date, shape, max_cloud_cover
+    connection: Connection, start_date, end_date, shape, max_cloud_cover, output_path
 ):
 
     bands = [
@@ -113,7 +114,7 @@ def mask_and_complete(
         #     reducer="median"  # or use a custom reducer if needed
         # )
 
-        output_dir = "cloud_free_composites"
+        output_dir = str(Path(output_path, "cloud_free_composites"))
         os.makedirs(output_dir, exist_ok=True)
 
         output_file = os.path.join(
