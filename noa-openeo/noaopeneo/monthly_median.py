@@ -1,187 +1,138 @@
 """
 Aggregate
 """
-import datetime
+
 import os
-from openeo import Connection
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
+from openeo import Connection
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def mask_and_complete(connection: Connection, start_date, end_date, shape, max_cloud_cover):
+def monthly_median_daydelta(
+    connection, start_date, end_date, shape, max_cloud_cover, day_delta
+):
+    """Iterates over each month in the range and calls process_dates with expanded range."""
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+    print(f"====== Cloud free composites from {start_date} to {end_date} ======")
+    current_date = start_date.replace(day=1)  # Move to the first day of the start month
+    while current_date <= end_date:
+        month_start = current_date
+        month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-    bands = ["B02", "B03", "B04", "SCL"]
-    visual_bands = ["B02", "B03", "B04"]
+        # Expand range by 10 days before and after
+        start_range = max(month_start - timedelta(days=day_delta), start_date)
+        end_range = min(month_end + timedelta(days=day_delta), end_date)
+
+        print(
+            f"Cloud free composites from {start_range.strftime("%Y-%m-%d")} to {end_range.strftime("%Y-%m-%d")}"
+        )
+        mask_and_complete(
+            connection,
+            start_range.strftime("%Y-%m-%d"),
+            end_range.strftime("%Y-%m-%d"),
+            shape,
+            max_cloud_cover,
+        )
+
+        # Move to the next month
+        current_date += relativedelta(months=1)
+
+
+def mask_and_complete(
+    connection: Connection, start_date, end_date, shape, max_cloud_cover
+):
+
+    bands = [
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05",
+        "B06",
+        "B07",
+        "B08",
+        "B08A",
+        "B09",
+        "B10",
+        "B11",
+        "B12",
+    ]
 
     s2_cube = connection.load_collection(
         collection_id="SENTINEL2_L2A",
         spatial_extent=shape,
         temporal_extent=[start_date, end_date],
         bands=bands,
-        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)}
+        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)},
     )
 
-    scl_cube = s2_cube.band("SCL")
+    scl_cube = connection.load_collection(
+        collection_id="SENTINEL2_L2A",
+        spatial_extent=shape,
+        temporal_extent=[start_date, end_date],
+        bands=["SCL"],
+        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)},
+    )
 
     # Cloudy pixels are identified as where SCL is 3, 8, 9, or 10.
     # Here we assume that the client overloads comparison operators and bitwise OR (|) for boolean operations.
     # [0, 1, 2, 3, 7, 8, 9, 10]
     cloud_mask = (
-        (scl_cube == 0) | (scl_cube == 1) | (scl_cube == 2) | (scl_cube == 3) |
-        (scl_cube == 7) | (scl_cube == 8) | (scl_cube == 9) | (scl_cube == 10)
+        (scl_cube == 0)
+        | (scl_cube == 1)
+        | (scl_cube == 2)
+        | (scl_cube == 3)
+        | (scl_cube == 7)
+        | (scl_cube == 8)
+        | (scl_cube == 9)
+        | (scl_cube == 10)
     )
+    # water_mask = (scl_cube == 6)
+    # snow_mask = (scl_cube == 11)
 
-    for band in visual_bands:
+    masked_cube = s2_cube.mask(cloud_mask, replacement=None)
 
-        # 5. Apply the mask to the B04 cube (masking cloudy pixels by setting them to no-data).
-        masked_band = s2_cube.band(band).mask(cloud_mask, replacement=None)
-        not_masked_band = s2_cube.band(band)
+    for band in bands:
+        masked_band = masked_cube.band(band)
+        # not_masked_band = masked_cube.band(band)
 
         # 6. Reduce the time dimension to create a composite.
         # For example, use a median reducer over time.
         composite = masked_band.reduce_dimension(
-            dimension="t",
-            reducer="median"  # or use a custom reducer if needed
+            dimension="t", reducer="median"  # or use a custom reducer if needed
         )
-        not_masked_composite = not_masked_band.reduce_dimension(
-            dimension="t",
-            reducer="median"  # or use a custom reducer if needed
-        )
-        # filled = composite.apply("linear_interpolation")
-
-        output_dir = "cloud_free_composites"
-        os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif")
-        output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
-        # s2_cube.save_result(format="GTiff")
-        # Execute
-        composite.execute_batch(output_file, out_format="GTiff")
-        not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
-
-        logger.info("Saved: %s ", output_file)
-
-
-def month_median(connection: Connection, start_date, end_date, shape, max_cloud_cover):
-
-    visual_bands = ["B02", "B03", "B04"]
-    # Build the openEO process
-    scl = connection.load_collection(
-        collection_id="SENTINEL2_L2A",
-        spatial_extent=shape,
-        temporal_extent=[start_date, end_date],
-        bands=["SCL"],
-        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)}
-    )
-
-    cloud_mask = scl.process(
-        "to_scl_dilation_mask",
-        data=scl,
-        kernel1_size=17, kernel2_size=77,
-        mask1_values=[2, 4, 5, 6, 7],
-        mask2_values=[3, 8, 9, 10, 11],
-        erosion_kernel_size=3)
-
-    s2_cube = connection.load_collection(
-            collection_id="SENTINEL2_L2A",
-            spatial_extent=shape,
-            temporal_extent=[start_date, end_date],
-            bands=visual_bands,
-            properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)}
-        )
-    s2_cube = s2_cube.merge_cubes(cloud_mask)
-
-    for band in visual_bands:
-
-        band_cube = s2_cube.band(band)
-        # Fill gaps in the data using linear interpolation
-        band_cube_interpolation = band_cube.apply_dimension(
-            dimension="t",
-            process="array_interpolate_linear"
-        )
-
-        band_cube_aggregate = band_cube_interpolation.aggregate_temporal_period(
-            period="month",
-            reducer="median"
-        )
-
-        output_dir = "cloud_free_composites"
-        os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{band}_{start_date}_{end_date}.tif")
-        # s2_cube.save_result(format="GTiff")
-        # Execute
-        band_cube_aggregate.execute_batch(output_file, out_format="GTiff")
-
-        logger.info("Saved: %s ", output_file)
-
-
-def aggregate_per_month(connection: Connection, start_date, end_date, shape, max_cloud_cover):
-
-    # BANDS. Please include SCL for Sentinel 2 to mask clouds
-    bands = ["B02", "B03", "B04", "B08", "SCL"]
-    visual_bands = ["B02", "B03", "B04", "B08"]
-    output_dir = "cloud_free_composites"
-    os.makedirs(output_dir, exist_ok=True)
-
-    start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-    end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
-    current_dt = start_dt
-
-    while current_dt <= end_dt:
-        year = current_dt.year
-        month = current_dt.month
-
-        month_start = f"{year}-{month:02d}-01"
-        last_day = (
-            datetime.date(year, month, 1).replace(day=28) +
-            datetime.timedelta(days=4)
-        ).replace(day=1) - datetime.timedelta(days=1)
-        month_end = last_day.strftime("%Y-%m-%d")
-
-        print(f"Processing: {year}-{month:02d} for shape file")
-
-        # target_crs = "EPSG:4326"
-        datacube = connection.load_collection(
-            "SENTINEL2_L2A",
-            spatial_extent=shape,
-            temporal_extent=[month_start, month_end],
-            bands=bands,
-            max_cloud_cover=max_cloud_cover
-        )  # .resample_spatial(projection=target_crs, resolution=10.0)
-
-        scl_mask = datacube.process(
-            "to_scl_dilation_mask",
-            data=datacube.filter_bands(["SCL"]),
-            scl_band_name="SCL",
-            kernel1_size=17,  # 17px dilation on a 20m layer
-            kernel2_size=77,   # 77px dilation on a 20m layer
-            mask1_values=[2, 4, 5, 6, 7],
-            mask2_values=[3, 8, 9, 10, 11],
-            erosion_kernel_size=3
-        ).rename_labels("bands", ["SCL_DILATED_MASK"])
-
-        datacube = datacube.merge_cubes(scl_mask)
-
-        # Apply cloud masking using the Scene Classification Layer (SCL)
-        # cloud_free = datacube.process(
-        #     "mask_scl_dilation",
-        #     data=datacube,
-        #     scl_band_name="SCL",
-        #     # You can experiment with the following
-        #     valid_scl_values=[3, 4, 5, 6, 7, 11]
+        #  not_masked_composite = not_masked_band.reduce_dimension(
+        #     dimension="t",
+        #     reducer="median"  # or use a custom reducer if needed
         # )
 
-        for band in visual_bands:
-            band_cube = datacube.band(band)
-            composite = band_cube.reduce_dimension(dimension="t", reducer="median")
-            output_file = os.path.join(output_dir, f"{band}_{year}_{month:02d}.tif")
+        output_dir = "cloud_free_composites"
+        os.makedirs(output_dir, exist_ok=True)
 
-            # Execute
-            composite.execute_batch(output_file, out_format="GTiff")
+        output_file = os.path.join(
+            output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
+        )
+        # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
 
-            logger.info("Saved: %s ", output_file)
+        composite.execute_batch(output_file, out_format="GTiff")
+        # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
+        logger.info("Saved: %s ", output_file)
 
-        # Move to next month
-        current_dt = (current_dt.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+    # Compute probability composites (mean occurrence over time)
+    # cloud_probability = cloud_mask.reduce_dimension(dimension="t", reducer="mean")
+    # water_probability = water_mask.reduce_dimension(dimension="t", reducer="mean")
+    # snow_probability = snow_mask.reduce_dimension(dimension="t", reducer="mean")
+
+    # cloud_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_cloud.tif")
+    # water_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_water.tif")
+    # snow_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_snow.tif")
+
+    # cloud_probability.execute_batch(cloud_output_file, out_format="GTiff")
+    # water_probability.execute_batch(water_output_file, out_format="GTiff")
+    # snow_probability.execute_batch(snow_output_file, out_format="GTiff")
