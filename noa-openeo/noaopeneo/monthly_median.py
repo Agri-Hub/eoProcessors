@@ -86,6 +86,7 @@ def mask_and_complete(
     # Cloudy pixels are identified as where SCL is 3, 8, 9, or 10.
     # Here we assume that the client overloads comparison operators and bitwise OR (|) for boolean operations.
     # [0, 1, 2, 3, 7, 8, 9, 10]
+    # Clouds only [0, 3, 7, 8, 9, 10]
     cloud_mask = (
         (scl_cube == 0)
         | (scl_cube == 1)
