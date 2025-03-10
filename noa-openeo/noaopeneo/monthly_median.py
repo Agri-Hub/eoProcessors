@@ -120,19 +120,19 @@ def mask_and_complete(
 
         output_dir = str(Path(output_path, "cloud_free_composites"))
         os.makedirs(output_dir, exist_ok=True)
-
+        title = f"{Path(shape).stem}_{start_date}_{end_date}_{band}"
         output_file = os.path.join(
             output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
         )
         # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
         try:
-            composite.execute_batch(output_file, out_format="GTiff")
+            composite.execute_batch(output_file, out_format="GTiff", title=title)
         except RuntimeError as e:
             print("something went wrong: %e", e)
             logging.error("something went wrong: %s ", e)
             continue
         # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
-        logging.info(
+        logging.info("%s %s %s %s",
             band,
             start_date,
             end_date,
