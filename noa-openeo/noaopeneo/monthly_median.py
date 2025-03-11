@@ -93,10 +93,7 @@ def mask_and_complete(
     # Clouds only [0, 3, 8, 9, 10]
     cloud_mask = (
         (scl_cube == 0)
-        | (scl_cube == 1)
-        | (scl_cube == 2)
         | (scl_cube == 3)
-        | (scl_cube == 7)
         | (scl_cube == 8)
         | (scl_cube == 9)
         | (scl_cube == 10)
@@ -126,7 +123,7 @@ def mask_and_complete(
 
                 output_dir = str(Path(output_path, "cloud_free_composites"))
                 os.makedirs(output_dir, exist_ok=True)
-                title = f"{Path(shape).stem}_{start_date}_{end_date}_{band}"
+                title = f"{Path(shape).stem} {start_date} {end_date} {band}"
                 output_file = os.path.join(
                     output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
                 )
