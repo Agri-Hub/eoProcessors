@@ -3,6 +3,7 @@ Aggregate
 """
 
 import os
+import time
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
@@ -14,6 +15,9 @@ log_filename = f"openeo_log_{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log"
 logging.basicConfig(filename=log_filename, level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
+
+MAX_RETRIES = 5
+SLEEPING_TIME_SEC = 10
 
 def monthly_median_daydelta(
     connection, start_date, end_date, shape, max_cloud_cover, day_delta, output_path
@@ -103,51 +107,75 @@ def mask_and_complete(
     masked_cube = s2_cube.mask(cloud_mask, replacement=None)
 
     for band in bands:
-        logging.info("%s %s %s - START", band, start_date, end_date)
-        print(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Trying band {band} from {start_date} to {end_date}")
-        masked_band = masked_cube.band(band)
-        # not_masked_band = masked_cube.band(band)
+        for retry in range(MAX_RETRIES):
+            try:
+                logging.info("%s %s %s - START", band, start_date, end_date)
+                print(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Trying band {band} from {start_date} to {end_date}")
+                masked_band = masked_cube.band(band)
+                # not_masked_band = masked_cube.band(band)
 
-        # 6. Reduce the time dimension to create a composite.
-        # For example, use a median reducer over time.
-        composite = masked_band.reduce_dimension(
-            dimension="t", reducer="median"  # or use a custom reducer if needed
-        )
-        #  not_masked_composite = not_masked_band.reduce_dimension(
-        #     dimension="t",
-        #     reducer="median"  # or use a custom reducer if needed
-        # )
+                # 6. Reduce the time dimension to create a composite.
+                # For example, use a median reducer over time.
+                composite = masked_band.reduce_dimension(
+                    dimension="t", reducer="median"  # or use a custom reducer if needed
+                )
+                #  not_masked_composite = not_masked_band.reduce_dimension(
+                #     dimension="t",
+                #     reducer="median"  # or use a custom reducer if needed
+                # )
 
-        output_dir = str(Path(output_path, "cloud_free_composites"))
-        os.makedirs(output_dir, exist_ok=True)
-        title = f"{Path(shape).stem}_{start_date}_{end_date}_{band}"
-        output_file = os.path.join(
-            output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
-        )
-        # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
-        try:
-            composite.execute_batch(output_file, out_format="GTiff", title=title)
-        except RuntimeError as e:
-            print("something went wrong: %e", e)
-            logging.error("something went wrong: %s ", e)
-            continue
-        # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
-        logging.info("%s %s %s %s",
-            band,
-            start_date,
-            end_date,
-            output_file
-        )
+                output_dir = str(Path(output_path, "cloud_free_composites"))
+                os.makedirs(output_dir, exist_ok=True)
+                title = f"{Path(shape).stem}_{start_date}_{end_date}_{band}"
+                output_file = os.path.join(
+                    output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}.tif"
+                )
+                # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
 
-    # Compute probability composites (mean occurrence over time)
-    # cloud_probability = cloud_mask.reduce_dimension(dimension="t", reducer="mean")
-    # water_probability = water_mask.reduce_dimension(dimension="t", reducer="mean")
-    # snow_probability = snow_mask.reduce_dimension(dimension="t", reducer="mean")
+                composite.execute_batch(output_file, out_format="GTiff", title=title)
+            except Exception as e:
+                print(
+                    "something went wrong: %s. RETRYING(%s attempt out of %s)",
+                    e,
+                    retry,
+                    MAX_RETRIES
+                )
+                logging.warning(
+                    "something went wrong: %s. RETRYING(%s attempt out of %s)",
+                    e,
+                    retry,
+                    MAX_RETRIES
+                )
+                time.sleep(SLEEPING_TIME_SEC)
+                continue
+            else:
+                print("DONE: %s %s %s %s", band, start_date, end_date, output_file)
+                logging.info("DONE: %s %s %s %s", band, start_date, end_date, output_file)
+                break
+        else:
+            print(
+                "Something went wrong after %s attempts. Aborting jobs of %s",
+                MAX_RETRIES,
+                title
+            )
+            logging.error(
+                "Something went wrong after %s attempts. Aborting jobs of %s",
+                MAX_RETRIES,
+                title
+            )
+            raise RuntimeError("Something is terribly wrong. Aborting")
 
-    # cloud_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_cloud.tif")
-    # water_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_water.tif")
-    # snow_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_snow.tif")
+            # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
 
-    # cloud_probability.execute_batch(cloud_output_file, out_format="GTiff")
-    # water_probability.execute_batch(water_output_file, out_format="GTiff")
-    # snow_probability.execute_batch(snow_output_file, out_format="GTiff")
+            # Compute probability composites (mean occurrence over time)
+            # cloud_probability = cloud_mask.reduce_dimension(dimension="t", reducer="mean")
+            # water_probability = water_mask.reduce_dimension(dimension="t", reducer="mean")
+            # snow_probability = snow_mask.reduce_dimension(dimension="t", reducer="mean")
+
+            # cloud_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_cloud.tif")
+            # water_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_water.tif")
+            # snow_output_file = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_snow.tif")
+
+            # cloud_probability.execute_batch(cloud_output_file, out_format="GTiff")
+            # water_probability.execute_batch(water_output_file, out_format="GTiff")
+            # snow_probability.execute_batch(snow_output_file, out_format="GTiff")
