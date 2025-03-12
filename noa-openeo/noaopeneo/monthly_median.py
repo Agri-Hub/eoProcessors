@@ -102,7 +102,12 @@ def mask_and_complete(
     # water_mask = (scl_cube == 6)
     # snow_mask = (scl_cube == 11)
 
-    masked_cube = s2_cube.mask(cloud_mask, replacement=None)
+    # Keep only AOI
+    s2_cube_masked_area = s2_cube.filter_spatial(shape)
+    cloud_mask_masked_area = cloud_mask.filter_spatial(shape)
+
+    # Mask clouds
+    masked_cube = s2_cube_masked_area.mask(cloud_mask_masked_area, replacement=None)
 
     for band in bands:
         for retry in range(MAX_RETRIES):
