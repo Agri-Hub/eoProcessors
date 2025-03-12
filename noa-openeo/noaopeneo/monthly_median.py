@@ -17,7 +17,8 @@ logging.basicConfig(filename=log_filename, level=logging.INFO,
 
 
 MAX_RETRIES = 5
-SLEEPING_TIME_SEC = 10
+SLEEPING_TIME_SEC = 30
+
 
 def monthly_median_daydelta(
     connection, start_date, end_date, shape, max_cloud_cover, day_delta, output_path
@@ -132,29 +133,22 @@ def mask_and_complete(
                 composite.execute_batch(output_file, out_format="GTiff", title=title)
             except Exception as e:
                 print(
-                    "something went wrong: %s. RETRYING(%s attempt out of %s)",
-                    e,
-                    retry,
-                    MAX_RETRIES
-                )
+                    f"Something went wrong: {e}.\n RETRYING({retry} attempt out of {MAX_RETRIES})")
                 logging.warning(
-                    "something went wrong: %s. RETRYING(%s attempt out of %s)",
+                    "Something went wrong: %s. RETRYING(%s attempt out of %s)",
                     e,
                     retry,
                     MAX_RETRIES
                 )
-                time.sleep(SLEEPING_TIME_SEC)
+                time.sleep(SLEEPING_TIME_SEC + (retry*SLEEPING_TIME_SEC*2))
                 continue
             else:
-                print("DONE: %s %s %s %s", band, start_date, end_date, output_file)
+                print(f"DONE: {band} {start_date} {end_date} {output_file}")
                 logging.info("DONE: %s %s %s %s", band, start_date, end_date, output_file)
                 break
         else:
             print(
-                "Something went wrong after %s attempts. Aborting jobs of %s",
-                MAX_RETRIES,
-                title
-            )
+                f"Something went wrong after {MAX_RETRIES} attempts. Aborting jobs of {title}")
             logging.error(
                 "Something went wrong after %s attempts. Aborting jobs of %s",
                 MAX_RETRIES,
