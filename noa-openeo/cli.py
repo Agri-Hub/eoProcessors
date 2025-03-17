@@ -96,14 +96,13 @@ def cfmc(
         client_id=client_id, client_secret=client_secret
     )
 
-    max_cloud_cover = _config["max_cloud_cover"]
-
     monthly_median_daydelta(
-        connection,
-        _config["start_date"],
-        _config["end_date"],
-        shape,
-        max_cloud_cover,
+        connection=connection,
+        bands=_config["bands"],
+        start_date=_config["start_date"],
+        end_date=_config["end_date"],
+        shape=shape,
+        max_cloud_cover=_config["max_cloud_cover"],
         day_delta=_config["day_delta"],
         output_path=output_path
     )

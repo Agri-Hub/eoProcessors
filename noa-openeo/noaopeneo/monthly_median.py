@@ -21,7 +21,7 @@ SLEEPING_TIME_SEC = 30
 
 
 def monthly_median_daydelta(
-    connection, start_date, end_date, shape, max_cloud_cover, day_delta, output_path
+    connection, bands, start_date, end_date, shape, max_cloud_cover, day_delta, output_path
 ):
     """Iterates over each month in the range and calls process_dates with expanded range."""
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -41,12 +41,13 @@ def monthly_median_daydelta(
             f"Cloud free composites from {start_range.strftime("%Y-%m-%d")} to {end_range.strftime("%Y-%m-%d")}"
         )
         mask_and_complete(
-            connection,
-            start_range.strftime("%Y-%m-%d"),
-            end_range.strftime("%Y-%m-%d"),
-            shape,
-            max_cloud_cover,
-            output_path
+            connection=connection,
+            bands=bands,
+            start_date=start_range.strftime("%Y-%m-%d"),
+            end_date=end_range.strftime("%Y-%m-%d"),
+            shape=shape,
+            max_cloud_cover=max_cloud_cover,
+            output_path=output_path
         )
 
         # Move to the next month
@@ -54,23 +55,8 @@ def monthly_median_daydelta(
 
 
 def mask_and_complete(
-    connection: Connection, start_date, end_date, shape, max_cloud_cover, output_path
+    connection: Connection, bands, start_date, end_date, shape, max_cloud_cover, output_path
 ):
-
-    bands = [
-        "B01",
-        "B02",
-        "B03",
-        "B04",
-        "B05",
-        "B06",
-        "B07",
-        "B08",
-        "B8A",
-        "B09",
-        "B11",
-        "B12",
-    ]
 
     s2_cube = connection.load_collection(
         collection_id="SENTINEL2_L2A",
