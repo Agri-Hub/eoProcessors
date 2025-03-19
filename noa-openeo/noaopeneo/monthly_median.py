@@ -89,11 +89,8 @@ def mask_and_complete(
     # snow_mask = (scl_cube == 11)
 
     # Keep only AOI
-    s2_cube_masked_area = s2_cube.filter_spatial(shape)
-    cloud_mask_masked_area = cloud_mask.filter_spatial(shape)
-
-    # Mask clouds
-    masked_cube = s2_cube_masked_area.mask(cloud_mask_masked_area, replacement=None)
+    masked_cube_full = s2_cube.mask(cloud_mask, replacement=None)
+    masked_cube = masked_cube_full.filter_spatial(shape)
 
     for band in bands:
         for retry in range(MAX_RETRIES):
@@ -121,6 +118,7 @@ def mask_and_complete(
                 )
                 # output_file_not_masked = os.path.join(output_dir, f"{Path(shape).stem}_{start_date}_{end_date}_{band}_not_masked.tif")
 
+                # TODO job options: tweak CPU/mem etc to check credit usage
                 composite.execute_batch(output_file, out_format="GTiff", title=title)
             except Exception as e:
                 print(
@@ -145,7 +143,9 @@ def mask_and_complete(
                 MAX_RETRIES,
                 title
             )
-            raise RuntimeError("Something is terribly wrong. Aborting")
+            # TODO continue to next month
+            return
+            # raise RuntimeError("Something is terribly wrong. Aborting")
 
             # not_masked_composite.execute_batch(output_file_not_masked, out_format="GTiff")
 
