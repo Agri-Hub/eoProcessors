@@ -1,0 +1,14 @@
+{   
+    "catalog_id": "noa-beyond-internal-dev",
+    "catalog_description": "National Observatory of Athens internal STAC Catalog",
+    "catalog_title": "NOA-Beyond-Internal-Dev",
+    "catalog_path": "/tmp/data/dev/STAC/catalog/",
+    "catalog_filename": "catalog.json",
+    "collection_path": "/tmp/data/dev/STAC/catalog/collections/",
+    "output_path": "/tmp/data/dev/STAC/catalog/items/",
+    "collections": {
+        "wrf": {
+            "description": "Internal Weather Research and Forecasting model data"
+        }
+    }
+}
