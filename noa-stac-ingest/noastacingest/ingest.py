@@ -59,9 +59,7 @@ class Ingest:
         # TODO: provide more provider roles when "processor"
         noa_provider = Provider(
             name="NOA-Beyond",
-            description="""
-                National Observatory of Athens - 'Beyond' center of EO Research
-            """,
+            description="National Observatory of Athens - 'Beyond' center of EO Research",
             roles=ProviderRole.HOST,
             url="https://beyond-eocenter.eu/",
         )
