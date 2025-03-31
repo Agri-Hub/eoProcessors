@@ -16,6 +16,8 @@ from pystac import (
     Link,
     RelType,
     MediaType,
+    Provider,
+    ProviderRole,
     # CatalogType,
     SpatialExtent,
     TemporalExtent,
@@ -34,20 +36,35 @@ def main(config_file):
     catalog = Catalog.from_file(config["catalog_path"] + config["catalog_filename"])
 
     # For Collection:
+    now = datetime.datetime.now(datetime.timezone.utc)
     DEFAULT_EXTENT = Extent(
         SpatialExtent([[-180, -90, 180, 90]]),
-        TemporalExtent([[datetime.datetime.now(datetime.timezone.utc), None]]),
+        TemporalExtent([[now, now]]),
     )
     # TODO complete rest of fields like license etc
     for collection_id, collection_details in config["collections"].items():
         collection_description = collection_details["description"]
 
+        roles = [ProviderRole.HOST]
+
+        # TODO this is hardcoded. Can be extended through a cli command
+        if collection_id == "wrf":
+            roles.append(ProviderRole.PRODUCER)
+        noa_provider = Provider(
+            name="NOA-Beyond",
+            description="National Observatory of Athens - 'Beyond' center of EO Research",
+            roles=roles,
+            url="https://beyond-eocenter.eu/",
+        )
+        # TODO for collection and items also: upgrade stac version to 1.1
         new_collection = Collection(
             id=collection_id,
             href=str(config["collection_path"] + collection_id + "/collection.json"),
             description=collection_description,
+            providers=[noa_provider],
             extent=DEFAULT_EXTENT,
         )
+
         items_path = Path(config["collection_path"], collection_id, "items")
         if not os.path.exists(str(items_path)):
             items_path.mkdir(parents=True, exist_ok=True)
