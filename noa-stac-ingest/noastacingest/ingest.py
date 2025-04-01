@@ -59,7 +59,10 @@ class Ingest:
         additional_providers = utils.get_additional_providers(collection=collection)
 
         if collection == "wrf":
-            item = create_wrf_item()
+            item = create_wrf_item(
+                path=path,
+                additional_providers=additional_providers
+            )
         else:
             item = create_copernicus_item(
                 path=path,
