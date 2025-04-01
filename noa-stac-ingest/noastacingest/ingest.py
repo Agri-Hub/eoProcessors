@@ -55,7 +55,9 @@ class Ingest:
         noa_product_id: str | None = None,
     ):
         """
-        Create a new STAC Item, either by ingestion of existent data or new ones
+        Create a new STAC Item, either by ingestion of existing data or new ones.
+        Copernicus products come in directories (with either SAFE or SEN3 extensions)
+        Catalog and Collection must be present (paths defined in config)
         """
         # Additional provider for the item. Beyond host some Copernicus
         # data but also produces new products.
@@ -99,34 +101,36 @@ class Ingest:
             item_path = (
                 self._config.get("collection_path") + collection + "/items/" + item.id
             )
+            # TODO throw error if collection or catalog are not in path
             json_file_path = str(Path(item_path, item.id + ".json"))
             print(json_file_path)
 
-            # TODO add to item:
+            # TODO?? add to item??:
             # feature_collection = {
             #     "type": "FeatureCollection",
             #     "features": [
             #          item.to_dict() for item in collection_instance.get_all_items()
             #     ]
             # }
-            if collection:
-                item.set_root(self._catalog)
-                collection_instance = self._catalog.get_child(collection)
-                item.set_collection(collection_instance)
-                # TODO most providers do not have a direct collection/items relation
-                # Rather, they provide an items link, where all items are present
-                # e.g. https://earth-search.aws.element84.com/v1/
-                # collections/sentinel-2-l2a/items
-                # Like so, I do not know if an "extent" property is needed.
-                # If it is, update it:
-                collection_instance.update_extent_from_items()
-                collection_instance.normalize_and_save(
-                    self._config.get("collection_path") + collection + "/"
+
+            # Catalog and Collections must exist
+            item.set_root(self._catalog)
+            collection_instance = self._catalog.get_child(collection)
+            item.set_collection(collection_instance)
+            # TODO most providers do not have a direct collection/items relation
+            # Rather, they provide an items link, where all items are present
+            # e.g. https://earth-search.aws.element84.com/v1/
+            # collections/sentinel-2-l2a/items
+            # Like so, I do not know if an "extent" property is needed.
+            # If it is, update it:
+            collection_instance.update_extent_from_items()
+            collection_instance.normalize_and_save(
+                self._config.get("collection_path") + collection + "/"
+            )
+            if update_db:
+                db_utils.load_stac_items_to_pgstac(
+                    [collection_instance.to_dict()], collection=True
                 )
-                if update_db:
-                    db_utils.load_stac_items_to_pgstac(
-                        [collection_instance.to_dict()], collection=True
-                    )
 
             item.set_self_href(json_file_path)
             item.save_object(include_self_link=True)
