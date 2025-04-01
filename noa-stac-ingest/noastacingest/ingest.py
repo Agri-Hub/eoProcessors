@@ -13,10 +13,11 @@ from stactools.sentinel1.slc.stac import create_item as create_item_s1_slc
 from stactools.sentinel2.commands import create_item as create_item_s2
 from stactools.sentinel3.commands import create_item as create_item_s3
 
-from pystac import Catalog, Provider, ProviderRole
+from pystac import Catalog
 
 from noastacingest import utils
 from noastacingest.db import utils as db_utils
+from noastacingest.create_item_beyond import create_wrf_item
 
 
 FILETYPES = ("SAFE", "SEN3")
@@ -54,16 +55,11 @@ class Ingest:
         noa_product_id: str | None = None,
     ):
         """
-        Just an item
+        Create a new STAC Item, either by ingestion of existent data or new ones
         """
-        # TODO: provide more provider roles when "processor"
-        noa_provider = Provider(
-            name="NOA-Beyond",
-            description="National Observatory of Athens - 'Beyond' center of EO Research",
-            roles=ProviderRole.HOST,
-            url="https://beyond-eocenter.eu/",
-        )
-        additional_providers = [noa_provider]
+        # Additional provider for the item. Beyond host some Copernicus
+        # data but also produces new products.
+        additional_providers = utils.get_additional_providers(collection=collection)
 
         if path.name.endswith(FILETYPES):
             platform = str(path.name).split("_", maxsplit=1)[0]
