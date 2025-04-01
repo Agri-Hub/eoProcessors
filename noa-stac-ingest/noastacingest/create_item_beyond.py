@@ -15,6 +15,7 @@ from pystac.utils import now_to_rfc3339_str
 
 COORD_ROUNDING: Final[int] = 6
 
+
 def create_wrf_item(
     path: Path,
     additional_providers: list[Provider]
