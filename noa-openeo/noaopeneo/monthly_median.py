@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
 from openeo import Connection
+from openeo import collection_property
 
 import logging
 
@@ -77,7 +78,10 @@ def mask_and_complete(
         spatial_extent=shape,
         temporal_extent=[start_date, end_date],
         bands=bands,
-        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)},
+        properties=[
+            collection_property("processingBaseline")  == "05.10", # or "05.00"
+        ],
+        max_cloud_cover=max_cloud_cover
     )
 
     scl_cube = connection.load_collection(
@@ -85,7 +89,10 @@ def mask_and_complete(
         spatial_extent=shape,
         temporal_extent=[start_date, end_date],
         bands=["SCL"],
-        properties={"eo:cloud_cover": lambda x: x.lte(max_cloud_cover)},
+        properties=[
+            collection_property("processingBaseline")  == "05.10", # or "05.00"
+        ],
+        max_cloud_cover=max_cloud_cover
     )
 
     # Cloudy pixels are identified as where SCL is 3, 8, 9, or 10.
@@ -95,7 +102,7 @@ def mask_and_complete(
         | (scl_cube == 3)
         | (scl_cube == 8)
         | (scl_cube == 9)
-        | (scl_cube == 10)
+        | (scl_cube == 10)  # remove thin cirrus
     )
     # water_mask = (scl_cube == 6)
     # snow_mask = (scl_cube == 11)
