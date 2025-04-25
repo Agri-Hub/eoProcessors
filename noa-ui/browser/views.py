@@ -162,7 +162,7 @@ def results(request):
             },
         )
 
-    return render(request, 'base.html')
+    return render(request, "base.html")
 
 
 def _collect_existing_products(

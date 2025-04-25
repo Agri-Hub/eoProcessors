@@ -14,8 +14,7 @@ class RegisterForm(UserCreationForm):
 
 class NoaUserCreationForm(UserCreationForm):
     email = forms.EmailField(
-        required=True,
-        help_text="You must use your @noa email address."
+        required=True, help_text="You must use your @noa email address."
     )
 
     class Meta:
