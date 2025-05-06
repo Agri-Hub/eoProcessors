@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "browser",
     "leaflet",
     "stac_app",
+    'crispy_forms',     
+    'crispy_bootstrap5',
 ]
 
 MIDDLEWARE = [
@@ -156,13 +158,22 @@ STATIC_URL = '/static/'
 # STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # This will be used in collectstatic
 
 
 # Additional locations of static files
-#STATICFILES_DIRS = [
+# STATICFILES_DIRS = [
 #    BASE_DIR / 'staticfiles',
-#]
+# ]
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # This will be used in collectstatic
+
 
 # GDAL Configuration
 #GDAL_LIBRARY_PATH = os.getenv('GDAL_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/libgdal.so')
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "results"  
+LOGOUT_REDIRECT_URL = "login"
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
