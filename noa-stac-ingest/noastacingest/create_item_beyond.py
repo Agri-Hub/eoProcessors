@@ -11,6 +11,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import logging
 
+import boto3.session
 from rasterio.session import AWSSession
 
 import antimeridian
@@ -113,7 +114,7 @@ def create_chdm_items(
                 if fnmatch.fnmatch(key, pattern):
                     matched_files.append(key)
             for matched_file in matched_files:
-                image_paths.append("".join([path, matched_file]))
+                image_paths.append("/".join([bucket.name, matched_file]))
         except Exception as issue:
             print("The following error occurred:")
             print(issue)
@@ -126,12 +127,7 @@ def create_chdm_items(
     for image in image_paths:
         print(image)
         if s3_paths:
-            # Optional: explicitly set credentials
-            session = boto3.Session(
-                aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
-                aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None)
-            )
-            parts = urllib.parse.urlparse(image).path.split("_")
+            parts = image.split("_")
 
         else:
             parts = image.stem.split("_")
@@ -161,9 +157,26 @@ def create_chdm_items(
                 parts[-3],  # tile
                 parts[-2]  # random number
             ])
+            session = boto3.session.Session(
+                "s3",
+                aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
+                aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None),
+                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
+                region_name=os.getenv("CREODIAS_REGION", None)
+            )
+            # creodias_s3 = session.client(
+            #     's3',
+            #     endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
+            #     aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
+            #     aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None),
+            #     region_name=os.getenv("CREODIAS_REGION", None)
+            # )
+            # aws_session = AWSSession(creodias_s3)
+
             if s3_paths:
-                with rasterio.Env(AWSSession(session)):
-                    image.replace("https://s3", "s3://")
+                with rasterio.Env(session):
+                    image = "s3://" + image
+                    print(image)
                     with rasterio.open(image) as src:
                         bounds = src.bounds
                         bbox = [bounds.left, bounds.bottom, bounds.right, bounds.top]
