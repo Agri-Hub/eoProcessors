@@ -1,0 +1,12 @@
+{
+    "catalog_path": "https://s3.waw4-1.cloudferro.com/noa/stac/catalog/",
+    "catalog_filename": "catalog.json",
+    "collection_path": "https://s3.waw4-1.cloudferro.com/noa/stac/catalog/collections/",
+    "group_id": "stacingest-group-request",
+    "topics_consumer": ["noa.stacingest.request"],
+    "topic_producer": "noa.stacingest.response",
+    "num_partitions": 2,
+    "replication_factor": 3,
+    "kafka_bootstrap_servers": "kafka1:9092,kafka2:9092,kafka3:9092",
+    "kafka_request_group_id": "stacingest-group-request"
+}
