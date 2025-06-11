@@ -121,7 +121,6 @@ class Ingest:
                 path=input_path,
                 additional_providers=additional_providers
             )
-        # TODO treat s3 paths
         elif collection == "chdm_s2":
             created_items = create_chdm_items(
                 path=input_path,
