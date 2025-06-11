@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 import json
 import logging
+import tempfile
+
+import boto3
 
 from pystac import Catalog, Item
 
@@ -37,10 +40,22 @@ class Ingest:
         with open(config, encoding="utf8") as f:
             self._config = json.load(f)
         print(self._config)
-
-        self._catalog = Catalog.from_file(
-            Path(self._config["catalog_path"], self._config["catalog_filename"])
-        )
+        if "https://s3" in self._config["catalog_path"]:
+            s3 = boto3.resource(
+                "s3",
+                aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY"),
+                aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY"),
+                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
+                region_name=os.getenv("CREODIAS_REGION", None)
+            )
+            with tempfile.NamedTemporaryFile(suffix='.json') as tmp:
+                bucket = s3.Bucket(os.getenv("CREODIAS_S3_BUCKET_PRODUCT_OUTPUT", None))
+                bucket.download_file("stac/catalog/catalog.json", tmp.name)
+                self._catalog = Catalog.from_file(tmp.name)
+        else:
+            self._catalog = Catalog.from_file(
+                Path(self._config["catalog_path"], self._config["catalog_filename"])
+            )
 
     @property
     def config(self):
