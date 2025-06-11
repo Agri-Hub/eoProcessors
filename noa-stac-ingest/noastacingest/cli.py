@@ -28,7 +28,7 @@ from kafka.errors import (
 sys.path.append(str(Path(__file__).parent / ".."))
 
 from noastacingest import ingest  # noqa:402 pylint:disable=wrong-import-position
-from noastacingest import utils
+from noastacingest import utils  # noqa:402 pylint:disable=wrong-import-position
 from noastacingest.messaging.message import (  # noqa:402 pylint:disable=wrong-import-position
     Message,
 )
@@ -50,12 +50,12 @@ PROCESSOR = "[NOA-STACIngest]"
 )
 @click.option(
     "--log",
-    default="warning",
-    help="Log level (optional, e.g. DEBUG. Default is WARNING)",
+    default="INFO",
+    help="Log level (optional, e.g. DEBUG. Default is INFO)",
 )
 def cli(log):
     """Click cli group for query, download, describe cli commands"""
-    numeric_level = getattr(logging, log.upper(), "WARNING")
+    numeric_level = getattr(logging, log.upper(), "DEBUG")
     logging.basicConfig(
         format=f"[%(asctime)s.%(msecs)03d] [%(levelname)s] {PROCESSOR} %(message)s",
         level=numeric_level,
@@ -101,7 +101,7 @@ def create_item_from_path(
     # TODO needs refactor. Updating/creating items can be done in batches, (e.g in db)
     logger = logging.getLogger(__name__)
     logger.info("Cli STAC ingest using config file: %s", config)
-    ingestor = ingest.Ingest(config=config)
+    ingestor = ingest.Ingest(config=config, logger=logger)
 
     if recursive:
         click.echo(f"Ingesting items recursively from path {input_path}\n")
@@ -149,7 +149,7 @@ def ingest_from_path(
     # TODO needs refactor. Updating/creating items can be done in batches, (e.g in db)
     logger = logging.getLogger(__name__)
     logger.info("Cli STAC ingest using config file: %s", config)
-    ingestor = ingest.Ingest(config=config)
+    ingestor = ingest.Ingest(config=config, logger=logger)
 
     if recursive:
         click.echo(f"Ingesting items recursively from path {input_path}\n")
@@ -215,7 +215,7 @@ def noa_stac_ingest_service(
     logger = logging.getLogger(__name__)
     logger.debug("Starting NOA-STAC-Ingest service...")
 
-    ingestor = ingest.Ingest(config=config_file)
+    ingestor = ingest.Ingest(config=config_file, logger=logger)
 
     logger.info("Configuration: %s ", ingestor.config)
 

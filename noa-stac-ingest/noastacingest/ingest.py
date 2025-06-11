@@ -19,18 +19,20 @@ from noastacingest.create_item_beyond import (
 )
 
 
-logger = logging.getLogger(__name__)
-
-
 class Ingest:
     """
     A class
     """
 
-    def __init__(self, config: str | None) -> Ingest:
+    def __init__(
+        self,
+        config: str | None,
+        logger=logging.getLogger(__name__)
+    ) -> Ingest:
         """
         Ingest main class implementing single and batch item creation.
         """
+        self.logger = logger
         self._config = {}
         with open(config, encoding="utf8") as f:
             self._config = json.load(f)
@@ -105,7 +107,7 @@ class Ingest:
                 STAC Collection not defined or could not infer it
                 from filenames in path
                 """
-                logger.error(message)
+                self.logger.error(message)
         # Additional provider for the item. Beyond host some Copernicus
         # data but also produces new products.
         additional_providers = utils.get_additional_providers(collection=collection)
@@ -171,7 +173,7 @@ class Ingest:
                 additional_providers=additional_providers
             )
         if not item:
-            logger.error("Could not create STAC Item")
+            self.logger.error("Could not create STAC Item")
             return False
         item.properties["noa_product_id"] = noa_product_id
         result = self._save_item_add_to_collection(
@@ -191,19 +193,19 @@ class Ingest:
         # TODO: correct the algorithm: unite config retrieval
         db_config = db_utils.get_env_config()
         if not db_config:
-            logger.warning(
+            self.logger.warning(
                 "Not db configuration found in env vars. Trying local file"
             )
             db_config = db_utils.get_local_config()
             if not db_config:
-                logger.error(
+                self.logger.error(
                     "Not db configuration in env vars nor local database.ini file."
                 )
                 failed_items.append(uuid_list)
                 return ingested_items, failed_items
 
         for single_uuid in uuid_list:
-            logger.debug("Trying to ingest single uuid %s", single_uuid)
+            self.logger.debug("Trying to ingest single uuid %s", single_uuid)
             item = db_utils.query_all_from_table_column_value(
                 db_config, "products", "id", single_uuid
             )
@@ -215,17 +217,17 @@ class Ingest:
                 )
                 if result:
                     ingested_items.append(str(single_uuid))
-                    logger.debug("Ingested item from %s", item_path)
+                    self.logger.debug("Ingested item from %s", item_path)
                 else:
                     raise RuntimeError(
                         "Could not create the STAC Item",
                         single_uuid
                     )
             except RuntimeError as e:
-                logger.error(
+                self.logger.error(
                     "Item could not be ingested to pgSTAC: %s", str(single_uuid)
                 )
-                logger.error("Could not create STAC Item: %s", e)
+                self.logger.error("Could not create STAC Item: %s", e)
                 failed_items.append(str(single_uuid))
                 continue
 
@@ -233,7 +235,7 @@ class Ingest:
             "topic_producer",
             os.environ.get("KAFKA_OUTPUT_TOPIC", "stacingest.order.completed"),
         )
-        logger.debug("Sending message to topic %s", kafka_topic)
+        self.logger.debug("Sending message to topic %s", kafka_topic)
         try:
             bootstrap_servers = self.config.get(
                 "kafka_bootstrap_servers",
@@ -242,12 +244,12 @@ class Ingest:
             utils.send_kafka_message(
                 bootstrap_servers, kafka_topic, ingested_items, failed_items
             )
-            logger.info(
+            self.logger.info(
                 "Ingested %d items (%d failed). Sending message to Kafka consumer",
                 len(ingested_items),
                 len(failed_items)
             )
         except BrokenPipeError as e:
-            logger.error("Error sending kafka message: %s", e)
+            self.logger.error("Error sending kafka message: %s", e)
 
         return ingested_items, failed_items
