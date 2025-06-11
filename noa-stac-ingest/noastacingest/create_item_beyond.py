@@ -4,11 +4,13 @@ Generic helper functions for creating Beyond specific STAC items
 
 from typing import Final
 
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 import logging
 
 import antimeridian
+import boto3
 
 from shapely import Geometry
 from shapely.geometry import mapping as shapely_mapping
@@ -80,6 +82,27 @@ def create_chdm_items(
     processed = set()
     created_items = set()
 
+    # _pred is the binary prediction
+    # _pred_logits shows the confidence
+    if "s3://" in path:
+        try:
+            products_date = datetime.strptime(path, '%Y%m%d')
+            s3 = boto3.resource(
+                "s3",
+                aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
+                aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None),
+                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
+                region_name=os.getenv("CREODIAS_REGION", None)
+            )
+
+            bucket = s3.Bucket(os.getenv("CREODIAS_S3_BUCKET_PRODUCT_OUTPUT"))
+            for obj in bucket.objects.filter(Prefix=f"products/{products_date}"):
+                print(obj)
+
+        except Exception as issue:
+            print("The following error occurred:")
+            print(issue)
+            return
     # _pred is the binary prediction
     # _pred_logits shows the confidence
     for image in path.glob("*_pred.tif"):

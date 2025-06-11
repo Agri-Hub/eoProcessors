@@ -56,21 +56,26 @@ def get_additional_providers(collection: str) -> list[Provider]:
     return [noa_provider]
 
 
-def get_collection_from_path(pathname: Path) -> str:
+def get_collection_from_path(pathname: Path | str) -> str:
     """
     Infer the STAC Collection name from a file in pathname.
     This is Beyond specific: a contract and a name convention
     """
     collection = None
-
-    for filename in pathname.iterdir():
-        if not filename.is_file():
-            continue
-        if "ChDM_S2" in filename.name:
+    if type(pathname) is str and "s3://" in pathname:
+        if "ChDM_S2" in pathname:
             collection = "chdm_s2"
-            break
-        if "CFM" in filename.name:
+        elif "CFM" in pathname:
             collection = "s2_monthly_median"
-            break
-
-    return collection
+        return collection
+    else:
+        for filename in pathname.iterdir():
+            if not filename.is_file():
+                continue
+            if "ChDM_S2" in filename.name:
+                collection = "chdm_s2"
+                break
+            if "CFM" in filename.name:
+                collection = "s2_monthly_median"
+                break
+        return collection

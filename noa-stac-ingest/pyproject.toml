@@ -13,9 +13,11 @@ description = "Ingest geospatial data by creating STAC Items"
 requires-python = ">=3.12"
 dependencies = [
     "build>=1.1.1",
+    "boto3>=1.38.34",
     "click>=8.1.7",
-    "kafka-python-ng==2.2.3",
-    "rasterio==1.4.3",
+    "kafka-python-ng~=2.2.3",
+    "rasterio~=1.4.3",
+    "requests-aws4auth~=1.3.1",
     "pypgstac>=0.9.1",
     "pypgstac[psycopg]",
     "stactools>=0.5.3",

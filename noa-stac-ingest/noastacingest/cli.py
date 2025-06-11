@@ -217,6 +217,14 @@ def noa_stac_ingest_service(
 
     ingestor = ingest.Ingest(config=config_file, logger=logger)
 
+    product_path = "s3://s3.waw4-1.cloudferro.com/noa/products/20250611/"
+    ingestor.ingest_directory(
+        product_path,
+        None,
+        db_ingest
+    )
+    return 0
+
     logger.info("Configuration: %s ", ingestor.config)
 
     consumer: AbstractConsumer | k_KafkaConsumer = None
