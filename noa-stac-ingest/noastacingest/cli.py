@@ -217,7 +217,7 @@ def noa_stac_ingest_service(
 
     ingestor = ingest.Ingest(config=config_file, logger=logger)
 
-    product_path = "s3://s3.waw4-1.cloudferro.com/noa/products/20250611/"
+    product_path = "https://s3.waw4-1.cloudferro.com/noa/products/20250611/"
     ingestor.ingest_directory(
         product_path,
         None,
@@ -309,7 +309,7 @@ def noa_stac_ingest_service(
                         logger.debug("Ingested items: %s", ingested)
                         if failed:
                             logger.error("Failed uuids: %s", failed)
-                    elif "noaId" in item:
+                    elif "noaS3Path" in item:
                         # NOTE this s3 path is mounted. We run on Cloudferro
                         # Run either as mounted or s3 directly
                         # TODO pass through NOAId and return orderId
