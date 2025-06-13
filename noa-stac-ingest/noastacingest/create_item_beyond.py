@@ -11,9 +11,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 import logging
 
-import boto3.session
-from rasterio.session import AWSSession
-
 import antimeridian
 import boto3
 
@@ -123,9 +120,7 @@ def create_chdm_items(
     # _pred_logits shows the confidence
     else:
         image_paths = path.glob("*_pred.tif")
-    print(image_paths)
     for image in image_paths:
-        print(image)
         if s3_paths:
             parts = image.split("_")
 
@@ -175,7 +170,6 @@ def create_chdm_items(
 
             if s3_paths:
                 with rasterio.Env():
-                    print(url)
                     with rasterio.open(url) as src:
                         bounds = src.bounds
                         bbox = [bounds.left, bounds.bottom, bounds.right, bounds.top]
@@ -214,10 +208,10 @@ def create_chdm_items(
                     transform = src.transform
                     shape = [src.height, src.width]
 
-            start_datetime = datetime.strptime(parts[-5], "%Y-%m-%d").replace(
+            start_datetime = datetime.strptime(parts[-5], "%Y%m%d").replace(
                 tzinfo=timezone.utc
             )
-            end_datetime = datetime.strptime(parts[-4], "%Y-%m-%d").replace(
+            end_datetime = datetime.strptime(parts[-4], "%Y%m%d").replace(
                 tzinfo=timezone.utc
             )
 
@@ -250,23 +244,30 @@ def create_chdm_items(
             binary_title = "Change Detection Mapping - binary"
             confidence_title = "Change Detection Mapping - confidence"
             if s3_paths:
-                confidence_file = path + "/" + parts[:-1] + "_pred_logits.tif"
+                confidence_file = "_".join(parts[:-1]) + "_pred_logits.tif"
             else:
                 confidence_file = Path(image.parent, parts[:-1] + "_pred_logits.tif")
 
             sub_products[binary_title] = image
             sub_products[confidence_title] = confidence_file
 
-            for band_name, band_path in sub_products:
+            for band_name, band_path in sub_products.items():
                 if s3_paths:
                     with rasterio.Env():
-                        with rasterio.open(band_path) as src:
+                        url_part = s3_client.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': 'noa', 'Key': str(band_path).strip("noa/")},
+                            ExpiresIn=3600  # 1 hour validity
+                        )
+                        url = f'/vsicurl/{url_part}'
+                        with rasterio.open(url) as src:
                             dtype = src.dtypes[0]
                             nodata = src.nodata
                             resolution = (src.res[0], src.res[1])
                             shape = [src.height, src.width]
                             transform = src.transform
                             crs = src.crs.to_epsg()
+                        band_path = url_part
                 else:
                     with rasterio.open(band_path) as src:
                         dtype = src.dtypes[0]
@@ -280,7 +281,7 @@ def create_chdm_items(
 
                 asset_id = band_name
                 asset = Asset(
-                    href=str(band_path.resolve()),
+                    href=str(band_path.resolve()) if type(band_path) is Path else band_path,
                     media_type=pystac.MediaType.GEOTIFF,
                     roles=["data", "aggregation"],
                     title=asset_id,
