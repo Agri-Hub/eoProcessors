@@ -157,27 +157,26 @@ def create_chdm_items(
                 parts[-3],  # tile
                 parts[-2]  # random number
             ])
-            session = boto3.session.Session(
-                "s3",
+
+            s3_client = boto3.client(
+                service_name="s3",
                 aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
                 aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None),
-                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
-                region_name=os.getenv("CREODIAS_REGION", None)
+                region_name=os.getenv("CREODIAS_REGION", None),
+                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None)
             )
-            # creodias_s3 = session.client(
-            #     's3',
-            #     endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
-            #     aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
-            #     aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None),
-            #     region_name=os.getenv("CREODIAS_REGION", None)
-            # )
-            # aws_session = AWSSession(creodias_s3)
+
+            url_part = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': 'noa', 'Key': str(image).strip("noa/")},
+                ExpiresIn=3600  # 1 hour validity
+            )
+            url = f'/vsicurl/{url_part}'
 
             if s3_paths:
-                with rasterio.Env(session):
-                    image = "s3://" + image
-                    print(image)
-                    with rasterio.open(image) as src:
+                with rasterio.Env():
+                    print(url)
+                    with rasterio.open(url) as src:
                         bounds = src.bounds
                         bbox = [bounds.left, bounds.bottom, bounds.right, bounds.top]
                         geometry = {
@@ -260,8 +259,7 @@ def create_chdm_items(
 
             for band_name, band_path in sub_products:
                 if s3_paths:
-                    with rasterio.Env(AWSSession(session)):
-                        band_path.replace("https://s3", "s3://")
+                    with rasterio.Env():
                         with rasterio.open(band_path) as src:
                             dtype = src.dtypes[0]
                             nodata = src.nodata
