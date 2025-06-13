@@ -66,7 +66,8 @@ class Ingest:
         self,
         item: Item,
         collection: str,
-        update_db: bool
+        update_db: bool,
+        s3=False
     ):
         item_path = (
             self._config.get("collection_path") + collection + "/items/" + item.id
@@ -75,6 +76,15 @@ class Ingest:
         json_file_path = str(Path(item_path, item.id + ".json"))
         # Catalog and Collections must exist
         item.set_root(self._catalog)
+
+        if s3:
+            s3 = boto3.client(
+                's3',
+                endpoint_url=os.getenv("CREODIAS_ENDPOINT", None),
+                aws_access_key_id=os.getenv("CREODIAS_S3_ACCESS_KEY", None),
+                aws_secret_access_key=os.getenv("CREODIAS_S3_SECRET_KEY", None)
+            )
+
         collection_instance = self._catalog.get_child(collection)
         item.set_collection(collection_instance)
         # TODO most providers do not have a direct collection/items relation
@@ -146,7 +156,8 @@ class Ingest:
             result = self._save_item_add_to_collection(
                 item=item,
                 collection=collection,
-                update_db=update_db
+                update_db=update_db,
+                s3=True
             )
             if result:
                 print(item.id)
