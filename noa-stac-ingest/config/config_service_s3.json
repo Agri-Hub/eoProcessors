@@ -1,7 +1,7 @@
 {
-    "catalog_path": "https://s3.waw4-1.cloudferro.com/noa/stac/catalog/",
+    "catalog_path": "https://s3.waw4-1.cloudferro.com/stac/",
     "catalog_filename": "catalog.json",
-    "collection_path": "https://s3.waw4-1.cloudferro.com/noa/stac/catalog/collections/",
+    "collection_path": "https://s3.waw4-1.cloudferro.com/stac/collections/",
     "group_id": "stacingest-group-request",
     "topics_consumer": ["noa.stacingest.request"],
     "topic_producer": "noa.stacingest.response",

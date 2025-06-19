@@ -30,6 +30,7 @@ class Ingest:
     def __init__(
         self,
         config: str | None,
+        service: bool = False,
         logger=logging.getLogger(__name__)
     ) -> Ingest:
         """
@@ -37,9 +38,14 @@ class Ingest:
         """
         self.logger = logger
         self._config = {}
+        self._is_service = service
+
         with open(config, encoding="utf8") as f:
             self._config = json.load(f)
-        print(self._config)
+
+        logger.info(" Starting service with config: %s ", self._config)
+
+        # TODO check if is necessary to copy or just keep reference
         if "https://s3" in self._config["catalog_path"]:
             s3 = boto3.resource(
                 "s3",
@@ -49,9 +55,9 @@ class Ingest:
                 region_name=os.getenv("CREODIAS_REGION", None)
             )
             with tempfile.NamedTemporaryFile(suffix='.json') as tmp:
-                bucket = s3.Bucket(os.getenv("CREODIAS_S3_BUCKET_PRODUCT_OUTPUT", None))
-                bucket.download_file("stac/catalog/catalog.json", tmp.name)
-                self._catalog = Catalog.from_file(tmp.name)
+                bucket = s3.Bucket(os.getenv("CREODIAS_S3_BUCKET_STAC", None))
+                bucket.download_file("catalog.json", tmp.name)
+                self._catalog = Catalog.from_file(tmp.name).clone()
         else:
             self._catalog = Catalog.from_file(
                 Path(self._config["catalog_path"], self._config["catalog_filename"])

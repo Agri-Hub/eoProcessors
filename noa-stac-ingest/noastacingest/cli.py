@@ -101,7 +101,7 @@ def create_item_from_path(
     # TODO needs refactor. Updating/creating items can be done in batches, (e.g in db)
     logger = logging.getLogger(__name__)
     logger.info("Cli STAC ingest using config file: %s", config)
-    ingestor = ingest.Ingest(config=config, logger=logger)
+    ingestor = ingest.Ingest(config=config, service=False, logger=logger)
 
     if recursive:
         click.echo(f"Ingesting items recursively from path {input_path}\n")
@@ -149,7 +149,7 @@ def ingest_from_path(
     # TODO needs refactor. Updating/creating items can be done in batches, (e.g in db)
     logger = logging.getLogger(__name__)
     logger.info("Cli STAC ingest using config file: %s", config)
-    ingestor = ingest.Ingest(config=config, logger=logger)
+    ingestor = ingest.Ingest(config=config, service=False, logger=logger)
 
     if recursive:
         click.echo(f"Ingesting items recursively from path {input_path}\n")
@@ -215,7 +215,7 @@ def noa_stac_ingest_service(
     logger = logging.getLogger(__name__)
     logger.debug("Starting NOA-STAC-Ingest service...")
 
-    ingestor = ingest.Ingest(config=config_file, logger=logger)
+    ingestor = ingest.Ingest(config=config_file, service=True, logger=logger)
 
     product_path = "https://s3.waw4-1.cloudferro.com/noa/products/20250611/"
     ingestor.ingest_directory(
