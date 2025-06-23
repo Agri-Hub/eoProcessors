@@ -7,3 +7,5 @@ psycopg2-binary
 gunicorn
 django-environ
 python-dotenv
+django-crispy-forms>=2.0
+crispy-bootstrap5>=0.7
