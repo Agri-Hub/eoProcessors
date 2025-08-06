@@ -5,6 +5,8 @@ from pathlib import Path
 from configparser import ConfigParser
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.errors import ConnectionFailure
+from psycopg_pool import PoolTimeout
 
 # pylint: disable=E1129 # False-positive for psycopg connection context manager
 # TODO: after integration tests, remove helper functions and make
@@ -124,8 +126,11 @@ def load_stac_items_to_pgstac(item_path: str, collection: bool = False):
     """Connect to pgSTAC and populate item"""
     connection_string = f"postgresql://{os.getenv('STACDB_ADMIN_USERNAME')}:{os.getenv('STACDB_ADMIN_PASSWORD')}@{os.getenv('STACDB_URI')}/{os.getenv('STACDB_DBNAME')}"
     stac_db = pgdb.PgstacDB(connection_string)
-    stac_loader = Loader(stac_db)
-    if collection:
-        stac_loader.load_collections(item_path, insert_mode=Methods.upsert)
-    else:
-        stac_loader.load_items(item_path, insert_mode=Methods.upsert)
+    try:
+        stac_loader = Loader(stac_db)
+        if collection:
+            stac_loader.load_collections(item_path, insert_mode=Methods.upsert)
+        else:
+            stac_loader.load_items(item_path, insert_mode=Methods.upsert)
+    except (PoolTimeout, Exception) as e:
+        raise ConnectionFailure("Could not communicate or update pgstac: %s", e)

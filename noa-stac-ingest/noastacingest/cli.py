@@ -17,6 +17,7 @@ import click
 from click import Argument, Option
 from kafka import KafkaConsumer as k_KafkaConsumer
 from kafka.errors import (
+    NoBrokersAvailable,
     TopicAuthorizationFailedError,
     InvalidTopicError,
     UnknownTopicOrPartitionError,
@@ -220,72 +221,78 @@ def noa_stac_ingest_service(
     # test: product_path = "https://s3.waw4-1.cloudferro.com/noa/products/20250611/"
     # ingestor.ingest_directory(product_path, None, db_ingest)
 
-    logger.info("Configuration: %s ", ingestor.config)
-
+    # Consumer
     consumer: AbstractConsumer | k_KafkaConsumer = None
-
     # Warning: topics is a list, even if there is only one topic
     # So it should be defined as a list in the config json file
-    logger.debug("Getting topics for producer/consumer")
-
-    topics = ingestor.config.get(
+    consumer_topics = ingestor.config.get(
         "topics_consumer",
         os.environ.get("KAFKA_INPUT_TOPICS", ["noa.stacingest.request"]),
     )
-    # TODO even though we get a schema here, it is not actually used.
-    # Moreover, the schema is wrong, since two products use different
-    # schemas, and we cannot have a single consumer validating both
     schema_def = Message.schema_request()
+    consumer_bootstrap_servers = ingestor.config.get(
+        "kafka_bootstrap_servers",
+        (os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")),
+    )
+    kafka_group_id = ingestor.config.get(
+        "kafka_request_group_id",
+        (os.getenv("KAFKA_REQUEST_GROUP_ID", "stacingest-group-request")),
+    )
 
-    try:
-        logging.getLogger("kafka.consumer.fetcher").setLevel(logging.INFO)
-    except Exception as e:
-        print("No kafka fetcher: %s", e)
+    # Producer
+    producer_bootstrap_servers = ingestor.config.get(
+        "kafka_bootstrap_servers",
+        os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
+    )
 
+    producer_topic = ingestor.config.get(
+        "topic_producer", os.environ.get("KAFKA_OUTPUT_TOPIC", "noa.stacingest.response")
+    )
+
+    retries = 0
     while consumer is None:
-        consumer = KafkaConsumer(
-            bootstrap_servers=ingestor.config.get(
-                "kafka_bootstrap_servers",
-                (os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")),
-            ),
-            group_id=ingestor.config.get(
-                "kafka_request_group_id",
-                (os.getenv("KAFKA_REQUEST_GROUP_ID", "stacingest-group-request")),
-            ),
-            topics=topics,
-            # TODO this is not used. Either remove it or validate it
-            schema=schema_def,
-        )
         try:
-            logger.debug(
-                "Trying to subscribe to %s",
-                ingestor.config.get("topics_consumer", "NO SETUP"),
+            consumer = KafkaConsumer(
+                bootstrap_servers=consumer_bootstrap_servers,
+                group_id=kafka_group_id,
+                topics=consumer_topics,
+                schema=schema_def,
             )
-            consumer.subscribe_to_topics(topics)
+            consumer.subscribe_to_topics(consumer_topics)
+        except NoBrokersAvailable as e:
+            logger.error(
+                "Kafka configuration error, no brokers available for (%s) : %s ",
+                consumer_bootstrap_servers,
+                e,
+            )
+            raise
         except (
             UnknownTopicOrPartitionError,
             TopicAuthorizationFailedError,
             InvalidTopicError,
         ) as e:
-            logger.error("Kafka Error on Topic subscription: %s", e)
-            logger.error("No topics to subscribe to, retrying...")
-        if consumer is None:
-            sleep(5)
+            if retries < 5:
+                logger.warning("Could not subscribe to Topic(s): %s", consumer_topics)
+                if consumer is None:
+                    sleep(5)
+                    retries += 1
+                    continue
+            else:
+                logger.error(
+                    "Kafka Error on Topic subscription after %i retries: %s", retries, e
+                )
 
-    logger.info("Service started.\n")
-    if not db_ingest:
-        logger.warning(
-            "Items will not be ingested to pgSTAC. Did you enable the -db flag?"
-        )
+    logger.info("Service started, subscribed to topics %s", consumer_topics)
+
     while True:
         try:
             for message in consumer.read():
-                logger.debug("Reading value of incoming message")
+                result = 0
                 item = message.value
                 now_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 msg = f"Digesting Item from Topic {message.topic} ({now_time})..."
                 msg += "\n> Item: " + json.dumps(item)
-                logger.debug(msg)
+                logger.debug("Kafka message: %s", msg)
                 logger.info("Received list to ingest: %s", item)
                 if test:
                     ingested = "Some ingested ids"
@@ -309,26 +316,19 @@ def noa_stac_ingest_service(
                         # Run either as mounted or s3 directly
                         # TODO pass through NOAId and return orderId
                         # TODO refactor: kafka response sent at cli level
-                        product_path = item["noaS3Path"]
+                        product_paths = item["noaS3Path"]
                         order_id = item["orderId"]
-                        ingestor.ingest_directory(product_path, None, db_ingest)
-                        kafka_topic = ingestor.config.get(
-                            "topic_producer",
-                            os.environ.get(
-                                "KAFKA_OUTPUT_TOPIC", "noa.stacingest.response"
-                            ),
-                        )
-                        logger.debug("Sending message to topic %s", kafka_topic)
+                        for product_path in product_paths:
+                            ingestor.ingest_directory(product_path, None, db_ingest)
                         try:
-                            bootstrap_servers = ingestor.config.get(
-                                "kafka_bootstrap_servers",
-                                os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
-                            )
                             result = 0
                             # TODO, also this: we should have one message schema
                             # for response
                             utils.send_kafka_message_chdm(
-                                bootstrap_servers, kafka_topic, order_id, result
+                                producer_bootstrap_servers,
+                                producer_topic,
+                                order_id,
+                                result
                             )
                             logger.info(
                                 "Sending message to Kafka consumer. %s %s",

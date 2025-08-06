@@ -47,7 +47,7 @@ jobs:
           if [ -z "$latest_tag" ]; then
             new_tag="v0.0.1"
           else
-            new_tag=$(echo $latest_tag | awk -F. -v OFS=. '{$NF++;print}')
+            new_tag=$(echo $latest_tag | sed 's/+.*//g')
           fi
 
           echo "New tag version: $new_tag"
@@ -61,7 +61,7 @@ jobs:
           EARTHDATA_LOGIN: ${{ secrets.EARTHDATA_LOGIN }}
           EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
         run: |
-          for dir in noa-harvester noa-ui noa-stac-ingest; do
+          for dir in noa-harvester noa-ui noa-stac-ingest noa-change-detection-mapping; do
             IMAGE_NAME="ghcr.io/noa-beyond/${dir}"
             echo "Building and pushing Docker image for $dir"
             
@@ -81,8 +81,11 @@ jobs:
                 --build-arg POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
                 --build-arg HOST=${{ secrets.HOST }} \
                 -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ env.TAG_VERSION }} $dir
-      
-            else
+           
+            elif [ "$dir" = "noa-change-detection-mapping" ]; then
+              docker build --no-cache -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ env.TAG_VERSION }} $dir
+                
+            elif [ "$dir" = "noa-stac-ingest" ]; then
               docker build --no-cache -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ env.TAG_VERSION }} $dir
             fi
             

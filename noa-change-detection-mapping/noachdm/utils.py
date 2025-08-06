@@ -363,6 +363,8 @@ def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Pa
     bucket_name = bucket_name + "/products"
 
     current_date = datetime.datetime.now().strftime("%Y%m%d")
+    random_choice = random.choices(string.ascii_letters + string.digits, k=6)
+    current_date_plus_random = current_date + "_" + "".join(random_choice)
 
     for product_path in [output_path_pred, output_path_logits]:
         with open(product_path, "rb") as file_data:
@@ -370,7 +372,7 @@ def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Pa
         headers = {
             "Content-Length": str(len(file_content)),
         }
-        url = f"{endpoint}/{bucket_name}/{current_date}/{str(product_path.name)}"
+        url = f"{endpoint}/{bucket_name}/{current_date_plus_random}/{str(product_path.name)}"
 
         try:
             response = requests.put(
@@ -385,7 +387,7 @@ def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Pa
                 str(product_path.name),
                 endpoint,
                 bucket_name,
-                current_date,
+                current_date_plus_random,
             )
         else:
             logger.error(
@@ -395,7 +397,7 @@ def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Pa
                 response.text,
             )
 
-    return f"{endpoint}/{bucket_name}/{current_date}/"
+    return f"{endpoint}/{bucket_name}/{current_date_plus_random}/"
 
 
 def crop_to_reference(reference_path: pathlib.Path, raster_path: pathlib.Path):

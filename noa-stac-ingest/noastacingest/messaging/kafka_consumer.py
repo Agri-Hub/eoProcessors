@@ -3,6 +3,7 @@ Simple kafka producer schema
 """
 
 import json
+import logging
 from kafka import KafkaConsumer as k_KafkaConsumer
 from kafka.admin import KafkaAdminClient, NewTopic
 
@@ -30,7 +31,8 @@ class KafkaConsumer(noa_messaging.AbstractConsumer):
             *topics,
             bootstrap_servers=bootstrap_servers,
             group_id=group_id,
-            auto_offset_reset="earliest",
+            # auto_offset_reset="earliest",
+            max_poll_interval_ms=1200000,
             value_deserializer=lambda x: json.loads(x.decode("utf-8"))
         )
 
@@ -58,7 +60,8 @@ class KafkaConsumer(noa_messaging.AbstractConsumer):
                 topic_list.append(t)
             # Ignore the error when the Topic already exists.
             except RuntimeWarning:
-                pass
+                logging.warning("Topic %s exists. Just a warning", topic)
+                continue
 
         return topic_list
 

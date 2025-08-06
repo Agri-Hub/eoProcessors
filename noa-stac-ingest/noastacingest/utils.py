@@ -91,7 +91,7 @@ def get_collection_from_path(pathname: Path | str) -> str:
             elif "CFM" in pathname:
                 collection = "s2_monthly_median"
             return collection
-    else:
+    elif type(pathname) is Path:
         for filename in pathname.iterdir():
             if not filename.is_file():
                 continue
@@ -102,6 +102,10 @@ def get_collection_from_path(pathname: Path | str) -> str:
                 collection = "s2_monthly_median"
                 break
         return collection
+    else:
+        message = "Cannot infer collection from path. Wrong type for pathname"
+        logger.error(message)
+        raise RuntimeError(message)
 
 
 def s3_catalog_to_local(s3_key) -> Catalog:

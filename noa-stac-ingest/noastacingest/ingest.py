@@ -4,14 +4,15 @@ from __future__ import annotations
 import os
 
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 import json
 import logging
 
 import boto3
 
-from pystac import Catalog, Collection, Item, CatalogType
+from pystac import Catalog, Item
 from pystac.layout import AsIsLayoutStrategy
+from psycopg.errors import ConnectionFailure
 
 from noastacingest import utils
 from noastacingest.db import utils as db_utils
@@ -124,7 +125,8 @@ class Ingest:
                 Body=json.dumps(stac_collection.to_dict(), indent=2),
                 ContentType="application/json",
             )
-            print(f"Uploaded: {item.get_self_href()}")
+            self.logger.info("Uploaded STAC Item: %s", item.get_self_href())
+            collection_instance = stac_collection
 
         else:
             collection_instance = self._catalog.get_child(collection)
@@ -138,22 +140,22 @@ class Ingest:
             # If it is, update it:
             # TODO fix spatial and temporal extent when new item is added
             collection_instance.update_extent_from_items()
-            print(item)
             collection_instance.normalize_and_save(
                 self._config.get("collection_path") + collection + "/"
-            )
-        if update_db:
-            db_utils.load_stac_items_to_pgstac(
-                [collection_instance.to_dict()], collection=True
             )
 
         if not s3:
             item.set_self_href(json_file_path)
-            print(item)
             item.save_object(include_self_link=True)
         if update_db:
-            db_utils.load_stac_items_to_pgstac([collection_instance.to_dict()], True)
-            db_utils.load_stac_items_to_pgstac([item.to_dict()])
+            try:
+                db_utils.load_stac_items_to_pgstac(
+                    [collection_instance.to_dict()], collection=True
+                )
+                db_utils.load_stac_items_to_pgstac([item.to_dict()])
+            except ConnectionFailure:
+                self.logger.error("Could not update pgSTAC")
+                pass
         return True
 
     def ingest_directory(
