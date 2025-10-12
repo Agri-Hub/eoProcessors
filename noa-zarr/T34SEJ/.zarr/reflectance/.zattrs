@@ -1,0 +1,9 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "time",
+        "band",
+        "y",
+        "x"
+    ],
+    "coordinates": "spatial_ref"
+}

@@ -1,0 +1,31 @@
+processor:
+  input:
+    root: "C:\\Users\\thana\\Desktop\\noa\\DataRelayHubs\\cogs"
+    recursive: true
+    globs: ["*.tif", "*.tiff"]
+
+  # How to parse filenames → capture **date** and **band** (and optionally **tile**)
+  filename:
+    mode: regex
+    # Named groups REQUIRED: (?P<date>...), (?P<band>...)
+    pattern: "^(?P<tile>T\\d{2}[A-Z]{3})_(?P<date>\\d{8})_(?P<band>B0[1-9]|B1[0-3]|B8A)\\.tif$"
+    # What strptime format to use for the 'date' group
+    date_format: "%Y%m%d" # or "%Y%m%d"
+    # How to normalize a YYYYMM to a full date
+    date_normalization: mid_month # one of: mid_month | first | last | keep
+
+  bands:
+    order: auto # "auto" = union & sorted; or explicit list below
+    # order: [B02, B03, B04, B08, B11, B12]
+
+  grouping:
+    by: tile # one of: none | tile | tile_year | tile_month
+    # If by != none, the output path acts as a directory root and we will create one
+    # store per group using the pattern below (available keys: {tile}, {year}, {month}).
+    store_pattern: "{tile}.zarr"
+
+  zarr:
+    out: "C:\\Users\\thana\\Desktop\\noa\\DataRelayHubs\\cogs"
+    chunks: {time: 1, band: -1, y: 2048, x: 2048}
+    compressor: "zstd:6"   # Blosc compressor: zstd:6, lz4:5, zlib:5
+    consolidate: true

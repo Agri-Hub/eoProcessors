@@ -1,0 +1,6 @@
+{
+    "GeoTransform": "2337683.318636345 10.0 0.0 4829717.982549848 0.0 -10.0",
+    "_ARRAY_DIMENSIONS": [],
+    "crs_wkt": "LOCAL_CS[\"WGS 84 / Pseudo-Mercator\",UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+    "spatial_ref": "LOCAL_CS[\"WGS 84 / Pseudo-Mercator\",UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]"
+}
