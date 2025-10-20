@@ -18,6 +18,7 @@ import xarray as xr
 import rioxarray
 import rasterio
 from rasterio.windows import from_bounds
+from rasterio.enums import Resampling
 
 import geopandas as gpd
 from shapely.geometry import shape, box
@@ -35,6 +36,48 @@ from noachdm.messaging.message import Message
 from typing import Tuple, Optional
 
 from numcodecs import Blosc
+
+
+def _write_cog(
+    path: pathlib.Path,
+    array: np.ndarray,
+    *,
+    height: int,
+    width: int,
+    dtype,
+    crs,
+    transform,
+    nodata=None,
+    compress: str = "DEFLATE",
+    blocksize: int = 512,
+    bigtiff: str = "IF_SAFER",
+    overview_resampling: str = "NEAREST",
+    num_threads: str = "ALL_CPUS",
+    count: int = 1,
+):
+    """
+    Writes a GeoTIFF as Cloud-Optimized GeoTIFF (COG).
+    """
+    profile = {
+        "driver": "COG",             
+        "height": height,
+        "width": width,
+        "count": count,
+        "dtype": dtype,
+        "crs": crs,
+        "transform": transform,
+        "nodata": nodata,             
+        # COG creation options (GDAL)
+        "compress": compress,         
+        "blocksize": blocksize,       
+        "bigtiff": bigtiff,           
+        "num_threads": num_threads,   
+        "overview_resampling": overview_resampling, 
+    }
+
+    with rasterio.open(path, "w", **profile) as dst:
+        dst.write(array, 1)
+
 
 
 def send_kafka_message(bootstrap_servers, topic, result, order_id, product_path):
@@ -313,33 +356,40 @@ def predict_all_scenes_to_mosaic(
             output_dir.resolve(), output_filename_pred_logits
         )
 
-        with rasterio.open(
-            output_path_pred,
-            "w",
-            driver="GTiff",
+
+        _write_cog(
+            path=output_path_pred,
+            array=full_pred,
             height=h,
             width=w,
-            count=1,
             dtype=full_pred.dtype,
             crs=crs,
             transform=transform,
-        ) as dst:
-            dst.write(full_pred, 1)
+            nodata=None,
+            compress="DEFLATE",
+            blocksize=512,
+            bigtiff="IF_SAFER",
+            overview_resampling="NEAREST",
+            num_threads="ALL_CPUS",
+        )
 
-        with rasterio.open(
-            output_path_logits,
-            "w",
-            driver="GTiff",
+        _write_cog(
+            path=output_path_logits,
+            array=full_pred_logits,
             height=h,
             width=w,
-            count=1,
             dtype=full_pred_logits.dtype,
             crs=crs,
             transform=transform,
-        ) as dst:
-            dst.write(full_pred_logits, 1)
+            nodata=None,
+            compress="DEFLATE",
+            blocksize=512,
+            bigtiff="IF_SAFER",
+            overview_resampling="NEAREST",
+            num_threads="ALL_CPUS",
+        )
 
-        logger.info("Successfully created %s, %s", output_path_pred, output_path_logits)
+        logger.info(f"Successfully created COGs: {output_path_pred}, {output_path_logits}")
 
         out_zarr = output_dir.resolve() / f"{output_filename}.zarr"
 
