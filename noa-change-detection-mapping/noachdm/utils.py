@@ -33,7 +33,6 @@ from noachdm.messaging.kafka_producer import KafkaProducer
 from noachdm.messaging.message import Message
 
 from typing import Tuple, Optional
-from datetime import datetime
 
 from numcodecs import Blosc
 
@@ -123,14 +122,7 @@ def crop_and_make_mosaic(
         # or change code below at "group_bands" function, at line
         # `scene_id = "_".join(fname.name.split("_")[:-1])` to get the scene id.
         # Of course, with proper testing, you can avoid all this
-        filename = "_".join(
-            [
-                tile_match.group(),
-                date_match.group(),
-                "composite",
-                band
-            ]
-        )
+        filename = "_".join([tile_match.group(), date_match.group(), "composite", band])
         output_path.mkdir(parents=True, exist_ok=True)
         output_filename = pathlib.Path(output_path, filename + ".tif")
         result.rio.to_raster(
@@ -220,11 +212,12 @@ class SentinelChangeDataset(Dataset):
 
 
 def predict_all_scenes_to_mosaic(
-    model_weights_path, dataset: SentinelChangeDataset,
+    model_weights_path,
+    dataset: SentinelChangeDataset,
     output_dir: pathlib.Path,
     device="cpu",
     service=False,
-    logger=logging.getLogger(__name__)
+    logger=logging.getLogger(__name__),
 ):
     model = define_G(net_G="base_transformer_pos_s4_dd8", input_nc=3)
     model = torch.load(
@@ -237,23 +230,22 @@ def predict_all_scenes_to_mosaic(
     date_pattern = r"\d{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])"
 
     tile_match = re.search(
-        tile_pattern,
-        pathlib.Path(dataset.pre_scenes[0]["B04"]).name
+        tile_pattern, pathlib.Path(dataset.pre_scenes[0]["B04"]).name
     )
     date_match_from = re.search(
-        date_pattern,
-        pathlib.Path(dataset.pre_scenes[0]["B04"]).name
+        date_pattern, pathlib.Path(dataset.pre_scenes[0]["B04"]).name
     )
     date_match_to = re.search(
-        date_pattern,
-        pathlib.Path(dataset.post_scenes[0]["B04"]).name
+        date_pattern, pathlib.Path(dataset.post_scenes[0]["B04"]).name
     )
 
     date_from = date_match_from.group()
     date_to = date_match_to.group()
     tile = tile_match.group()
     random_choice = random.choices(string.ascii_letters + string.digits, k=6)
-    logger.info("Filename parts: %s, %s, %s, %s", date_from, date_to, tile, random_choice)
+    logger.info(
+        "Filename parts: %s, %s, %s, %s", date_from, date_to, tile, random_choice
+    )
 
     for scene_index, scene in enumerate(dataset.pre_scenes):
         with rasterio.open(scene["B04"]) as ref_src:
@@ -317,7 +309,9 @@ def predict_all_scenes_to_mosaic(
         output_filename_pred_logits = output_filename + "_pred_logits.tif"
         output_dir.resolve().mkdir(parents=True, exist_ok=True)
         output_path_pred = pathlib.Path(output_dir.resolve(), output_filename_pred)
-        output_path_logits = pathlib.Path(output_dir.resolve(), output_filename_pred_logits)
+        output_path_logits = pathlib.Path(
+            output_dir.resolve(), output_filename_pred_logits
+        )
 
         with rasterio.open(
             output_path_pred,
@@ -348,7 +342,7 @@ def predict_all_scenes_to_mosaic(
         logger.info("Successfully created %s, %s", output_path_pred, output_path_logits)
 
         out_zarr = output_dir.resolve() / f"{output_filename}.zarr"
-        
+
         try:
             zarr_path = stack_geotiffs_to_zarr(
                 pred_path=output_path_pred,
@@ -356,14 +350,14 @@ def predict_all_scenes_to_mosaic(
                 out_zarr=out_zarr,
                 chunks=(1024, 1024),
                 add_time_dim=True,
-                time_coord="start", 
+                time_coord="start",
             )
             logger.info(f"Zarr stacked at {zarr_path}")
-        
+
         except Exception as e:
-            logger.exception(f"Failed to build Zarr from {output_path_pred} and {output_path_logits}: {e}")
-
-
+            logger.exception(
+                f"Failed to build Zarr from {output_path_pred} and {output_path_logits}: {e}"
+            )
 
         if service:
             s3_upload_path = _upload_to_s3(output_path_pred, output_path_logits)
@@ -467,7 +461,9 @@ def _parse_dates_from_standard_name(p: pathlib.Path) -> tuple[str, str]:
     stem = p.stem
     parts = stem.split("_")
 
-    assert len(parts) >= 7 and parts[0] == "ChDM", f"Unexpected filename format: {p.name}"
+    assert (
+        len(parts) >= 7 and parts[0] == "ChDM"
+    ), f"Unexpected filename format: {p.name}"
 
     return parts[2], parts[3]
 
@@ -476,7 +472,7 @@ def _date_to_datetime(s: str) -> np.datetime64:
     """
     Convert 'YYYYMMDD' to numpy.datetime64 with ns precision.
     """
-    return np.datetime64(datetime.strptime(s, "%Y%m%d"), "ns")
+    return np.datetime64(datetime.datetime.strptime(s, "%Y%m%d"), "ns")
 
 
 def stack_geotiffs_to_zarr(
@@ -487,14 +483,16 @@ def stack_geotiffs_to_zarr(
     time_from: Optional[str] = None,
     time_to: Optional[str] = None,
     add_time_dim: bool = True,
-    time_coord: str = "start",   # supports 'start' | 'end' | 'midpoint'
+    time_coord: str = "start",  # supports 'start' | 'end' | 'midpoint'
 ) -> pathlib.Path:
     """
     Stack a binary mask (pred) and score (logits) GeoTIFFs into a single Zarr store.
     """
     logger = logging.getLogger(__name__)
 
-    logger.info(f"Stacking GeoTIFFs to Zarr: pred={pred_path} logits={logits_path} -> {out_zarr}")
+    logger.info(
+        f"Stacking GeoTIFFs to Zarr: pred={pred_path} logits={logits_path} -> {out_zarr}"
+    )
     logger.debug(f"Chunking configured as (y, x)={chunks}")
 
     crop_to_reference(pred_path, logits_path)
@@ -511,7 +509,9 @@ def stack_geotiffs_to_zarr(
         .squeeze("band", drop=True)
         .astype("uint8")
     )
-    logger.debug(f"Opened rasters: pred shape={predictions.shape}, logits shape={logits.shape}")
+    logger.debug(
+        f"Opened rasters: pred shape={predictions.shape}, logits shape={logits.shape}"
+    )
     logger.debug(f"CRS: pred={predictions.rio.crs}, logits={logits.rio.crs}")
 
     # Reproject/align if needed (shouldn't be, after crop)
@@ -525,18 +525,20 @@ def stack_geotiffs_to_zarr(
     ds = xr.Dataset({"change": predictions, "score": logits})
     ds = ds.assign_coords(x=predictions.x, y=predictions.y)
     ds.rio.write_crs(predictions.rio.crs, inplace=True)
-    
-    ds["change"].attrs.update({"long_name": "Binary change mask", "flag_values": [0, 1]})
+
+    ds["change"].attrs.update(
+        {"long_name": "Binary change mask", "flag_values": [0, 1]}
+    )
     ds["score"].attrs.update({"long_name": "Change score (0–100)"})
 
-    # add time metadata    
+    # add time metadata
     if time_from is None or time_to is None:
         parsed_time_from, parsed_time_to = _parse_dates_from_standard_name(pred_path)
         time_from = time_from or parsed_time_from
-        time_to = time_to or pt
+        time_to = time_to or parsed_time_to
 
-    t_start = _date_to_datetime(time_from) 
-    t_end   = _date_to_datetime(time_to)
+    t_start = _date_to_datetime(time_from)
+    t_end = _date_to_datetime(time_to)
 
     ds = ds.assign_coords(
         time_start=xr.DataArray(t_start),
@@ -550,8 +552,10 @@ def stack_geotiffs_to_zarr(
         elif time_coord == "end":
             t = t_end
         else:
-            raise ValueError(f"Invalid time_coord='{time_coord}'. Use 'start'|'end'|'midpoint'.")
-        
+            raise ValueError(
+                f"Invalid time_coord='{time_coord}'. Use 'start'|'end'|'midpoint'."
+            )
+
         ds = ds.expand_dims({"time": [t]})
         logger.debug(f"Added time dim with coord={time_coord} value={t}")
 
@@ -559,13 +563,13 @@ def stack_geotiffs_to_zarr(
     compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
     encoding = {
         "change": {"compressor": compressor, "chunks": (chunks[0], chunks[1])},
-        "score":  {"compressor": compressor, "chunks": (chunks[0], chunks[1])},
+        "score": {"compressor": compressor, "chunks": (chunks[0], chunks[1])},
     }
 
     out_zarr = pathlib.Path(out_zarr)
     logger.info(f"Writing Zarr -> {out_zarr}")
-    
+
     ds.to_zarr(out_zarr, mode="w", consolidated=True, encoding=encoding)
     logger.info(f"Zarr write complete: {out_zarr}")
-    
+
     return out_zarr
