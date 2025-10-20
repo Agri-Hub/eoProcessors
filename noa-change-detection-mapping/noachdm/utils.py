@@ -32,6 +32,11 @@ from noachdm.models.BIT import define_G
 from noachdm.messaging.kafka_producer import KafkaProducer
 from noachdm.messaging.message import Message
 
+from typing import Tuple, Optional
+from datetime import datetime
+
+from numcodecs import Blosc
+
 
 def send_kafka_message(bootstrap_servers, topic, result, order_id, product_path):
     logger = logging.getLogger(__name__)
@@ -342,6 +347,24 @@ def predict_all_scenes_to_mosaic(
 
         logger.info("Successfully created %s, %s", output_path_pred, output_path_logits)
 
+        out_zarr = output_dir.resolve() / f"{output_filename}.zarr"
+        
+        try:
+            zarr_path = stack_geotiffs_to_zarr(
+                pred_path=output_path_pred,
+                logits_path=output_path_logits,
+                out_zarr=out_zarr,
+                chunks=(1024, 1024),
+                add_time_dim=True,
+                time_coord="start", 
+            )
+            logger.info(f"Zarr stacked at {zarr_path}")
+        
+        except Exception as e:
+            logger.exception(f"Failed to build Zarr from {output_path_pred} and {output_path_logits}: {e}")
+
+
+
         if service:
             s3_upload_path = _upload_to_s3(output_path_pred, output_path_logits)
             return s3_upload_path
@@ -434,3 +457,115 @@ def crop_to_reference(reference_path: pathlib.Path, raster_path: pathlib.Path):
     with rasterio.open(raster_path, "w", **profile) as dst:
         dst.write(data)
     return True
+
+
+def _parse_dates_from_standard_name(p: pathlib.Path) -> tuple[str, str]:
+    """
+    Assumption that the filename will be as always ChDM_S2_<DATE_FROM>_<DATE_TO>_<TILE>_<RAND>_(pred|pred_logits).tif
+    Returns (DATE_FROM, DATE_TO) as 'YYYYMMDD' strings.
+    """
+    stem = p.stem
+    parts = stem.split("_")
+
+    assert len(parts) >= 7 and parts[0] == "ChDM", f"Unexpected filename format: {p.name}"
+
+    return parts[2], parts[3]
+
+
+def _date_to_datetime(s: str) -> np.datetime64:
+    """
+    Convert 'YYYYMMDD' to numpy.datetime64 with ns precision.
+    """
+    return np.datetime64(datetime.strptime(s, "%Y%m%d"), "ns")
+
+
+def stack_geotiffs_to_zarr(
+    pred_path: pathlib.Path,
+    logits_path: pathlib.Path,
+    out_zarr: pathlib.Path,
+    chunks: Tuple[int, int] = (1024, 1024),
+    time_from: Optional[str] = None,
+    time_to: Optional[str] = None,
+    add_time_dim: bool = True,
+    time_coord: str = "start",   # supports 'start' | 'end' | 'midpoint'
+) -> pathlib.Path:
+    """
+    Stack a binary mask (pred) and score (logits) GeoTIFFs into a single Zarr store.
+    """
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Stacking GeoTIFFs to Zarr: pred={pred_path} logits={logits_path} -> {out_zarr}")
+    logger.debug(f"Chunking configured as (y, x)={chunks}")
+
+    crop_to_reference(pred_path, logits_path)
+
+    # Open and squeeze band -> (y, x), while it keeps chunking
+    predictions = (
+        rioxarray.open_rasterio(pred_path, chunks={"y": chunks[0], "x": chunks[1]})
+        .squeeze("band", drop=True)
+        .astype("uint8")
+    )
+
+    logits = (
+        rioxarray.open_rasterio(logits_path, chunks={"y": chunks[0], "x": chunks[1]})
+        .squeeze("band", drop=True)
+        .astype("uint8")
+    )
+    logger.debug(f"Opened rasters: pred shape={predictions.shape}, logits shape={logits.shape}")
+    logger.debug(f"CRS: pred={predictions.rio.crs}, logits={logits.rio.crs}")
+
+    # Reproject/align if needed (shouldn't be, after crop)
+    if logits.rio.crs != predictions.rio.crs or logits.shape != predictions.shape:
+        logger.info("Reprojecting logits to match pred")
+        logits = logits.rio.reproject_match(predictions)
+
+    predictions.name = "change"
+    logits.name = "score"
+
+    ds = xr.Dataset({"change": predictions, "score": logits})
+    ds = ds.assign_coords(x=predictions.x, y=predictions.y)
+    ds.rio.write_crs(predictions.rio.crs, inplace=True)
+    
+    ds["change"].attrs.update({"long_name": "Binary change mask", "flag_values": [0, 1]})
+    ds["score"].attrs.update({"long_name": "Change score (0–100)"})
+
+    # add time metadata    
+    if time_from is None or time_to is None:
+        parsed_time_from, parsed_time_to = _parse_dates_from_standard_name(pred_path)
+        time_from = time_from or parsed_time_from
+        time_to = time_to or pt
+
+    t_start = _date_to_datetime(time_from) 
+    t_end   = _date_to_datetime(time_to)
+
+    ds = ds.assign_coords(
+        time_start=xr.DataArray(t_start),
+        time_end=xr.DataArray(t_end),
+        period=f"{time_from}-{time_to}",
+    )
+
+    if add_time_dim:
+        if time_coord == "start":
+            t = t_start
+        elif time_coord == "end":
+            t = t_end
+        else:
+            raise ValueError(f"Invalid time_coord='{time_coord}'. Use 'start'|'end'|'midpoint'.")
+        
+        ds = ds.expand_dims({"time": [t]})
+        logger.debug(f"Added time dim with coord={time_coord} value={t}")
+
+    # Compression --> chunked Zarr
+    compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+    encoding = {
+        "change": {"compressor": compressor, "chunks": (chunks[0], chunks[1])},
+        "score":  {"compressor": compressor, "chunks": (chunks[0], chunks[1])},
+    }
+
+    out_zarr = pathlib.Path(out_zarr)
+    logger.info(f"Writing Zarr -> {out_zarr}")
+    
+    ds.to_zarr(out_zarr, mode="w", consolidated=True, encoding=encoding)
+    logger.info(f"Zarr write complete: {out_zarr}")
+    
+    return out_zarr
