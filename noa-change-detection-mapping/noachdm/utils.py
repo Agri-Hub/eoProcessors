@@ -321,7 +321,7 @@ def predict_all_scenes_to_mosaic(
             y = min(y, h - y_shift)
             x = min(x, w - x_shift)
             # full_pred[y:y+y_shift, x:x+x_shift] = pred_patch
-            full_pred_logits[y : y + y_shift, x : x + x_shift] = pred_patch_logits
+            full_pred_logits[y: y + y_shift, x: x + x_shift] = pred_patch_logits
 
         full_pred_logits = full_pred_logits.astype(np.float32)
 
@@ -410,12 +410,18 @@ def predict_all_scenes_to_mosaic(
             )
 
         if service:
-            s3_upload_path = _upload_to_s3(output_path_pred, output_path_logits)
+            s3_upload_path = _upload_to_s3(
+                output_path_pred, output_path_logits, zarr_path
+            )
             return s3_upload_path
         return str(output_dir.resolve())
 
 
-def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Path):
+def _upload_to_s3(
+    output_path_pred: pathlib.Path,
+    output_path_logits: pathlib.Path,
+    zarr_path: pathlib.Path,
+):
     logger = logging.getLogger(__name__)
     region = os.getenv("CREODIAS_REGION", None)
     service = "s3"
@@ -433,7 +439,7 @@ def _upload_to_s3(output_path_pred: pathlib.Path, output_path_logits: pathlib.Pa
     random_choice = random.choices(string.ascii_letters + string.digits, k=6)
     current_date_plus_random = current_date + "_" + "".join(random_choice)
 
-    for product_path in [output_path_pred, output_path_logits]:
+    for product_path in [output_path_pred, output_path_logits, zarr_path]:
         with open(product_path, "rb") as file_data:
             file_content = file_data.read()
         headers = {
@@ -579,7 +585,7 @@ def stack_geotiffs_to_zarr(
     ds["change"].attrs.update(
         {"long_name": "Binary change mask", "flag_values": [0, 1]}
     )
-    ds["score"].attrs.update({"long_name": "Change score (0–100)"})
+    ds["score"].attrs.update({"long_name": "Change score (0-100)"})
 
     # add time metadata
     if time_from is None or time_to is None:
