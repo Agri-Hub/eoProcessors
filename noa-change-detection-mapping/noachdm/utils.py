@@ -10,6 +10,7 @@ import datetime
 
 import requests
 from requests_aws4auth import AWS4Auth
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from collections import defaultdict
 
@@ -18,7 +19,6 @@ import xarray as xr
 import rioxarray
 import rasterio
 from rasterio.windows import from_bounds
-from rasterio.enums import Resampling
 
 import geopandas as gpd
 from shapely.geometry import shape, box
@@ -59,25 +59,24 @@ def _write_cog(
     Writes a GeoTIFF as Cloud-Optimized GeoTIFF (COG).
     """
     profile = {
-        "driver": "COG",             
+        "driver": "COG",
         "height": height,
         "width": width,
         "count": count,
         "dtype": dtype,
         "crs": crs,
         "transform": transform,
-        "nodata": nodata,             
+        "nodata": nodata,
         # COG creation options (GDAL)
-        "compress": compress,         
-        "blocksize": blocksize,       
-        "bigtiff": bigtiff,           
-        "num_threads": num_threads,   
-        "overview_resampling": overview_resampling, 
+        "compress": compress,
+        "blocksize": blocksize,
+        "bigtiff": bigtiff,
+        "num_threads": num_threads,
+        "overview_resampling": overview_resampling,
     }
 
     with rasterio.open(path, "w", **profile) as dst:
         dst.write(array, 1)
-
 
 
 def send_kafka_message(bootstrap_servers, topic, result, order_id, product_path):
@@ -356,7 +355,6 @@ def predict_all_scenes_to_mosaic(
             output_dir.resolve(), output_filename_pred_logits
         )
 
-
         _write_cog(
             path=output_path_pred,
             array=full_pred,
@@ -389,7 +387,9 @@ def predict_all_scenes_to_mosaic(
             num_threads="ALL_CPUS",
         )
 
-        logger.info(f"Successfully created COGs: {output_path_pred}, {output_path_logits}")
+        logger.info(
+            f"Successfully created COGs: {output_path_pred}, {output_path_logits}"
+        )
 
         out_zarr = output_dir.resolve() / f"{output_filename}.zarr"
 
@@ -439,7 +439,7 @@ def _upload_to_s3(
     random_choice = random.choices(string.ascii_letters + string.digits, k=6)
     current_date_plus_random = current_date + "_" + "".join(random_choice)
 
-    for product_path in [output_path_pred, output_path_logits, zarr_path]:
+    for product_path in [output_path_pred, output_path_logits]:
         with open(product_path, "rb") as file_data:
             file_content = file_data.read()
         headers = {
@@ -469,6 +469,9 @@ def _upload_to_s3(
                 bucket_name,
                 response.text,
             )
+        upload_zarr_folder(
+            zarr_path, auth, endpoint, bucket_name, current_date_plus_random
+        )
 
     return f"{endpoint}/{bucket_name}/{current_date_plus_random}/"
 
@@ -511,7 +514,9 @@ def crop_to_reference(reference_path: pathlib.Path, raster_path: pathlib.Path):
 
 def _parse_dates_from_standard_name(p: pathlib.Path) -> tuple[str, str]:
     """
-    Assumption that the filename will be as always ChDM_S2_<DATE_FROM>_<DATE_TO>_<TILE>_<RAND>_(pred|pred_logits).tif
+    Assumption that the filename will always be in the form of:
+    ChDM_S2_<DATE_FROM>_<DATE_TO>_<TILE>_<RAND>_(pred|pred_logits).tif
+
     Returns (DATE_FROM, DATE_TO) as 'YYYYMMDD' strings.
     """
     stem = p.stem
@@ -629,3 +634,59 @@ def stack_geotiffs_to_zarr(
     logger.info(f"Zarr write complete: {out_zarr}")
 
     return out_zarr
+
+
+def upload_file(local_path, url, auth):
+    """Upload single file to an HTTP endpoint."""
+    with open(local_path, "rb") as f:
+        file_data = f.read()
+    headers = {"Content-Length": str(len(file_data))}
+    response = requests.put(url, headers=headers, auth=auth, data=file_data)
+    response.raise_for_status()
+    return url
+
+
+def upload_zarr_folder(
+    local_zarr_path, auth, endpoint, bucket_name, prefix, max_workers=8
+):
+    """
+    Upload a zarr directory to S3
+
+    Args:
+        local_zarr_path (str): Path to the local .zarr directory
+        auth (requests_aws4auth.AWS4Auth): authentication instance
+        endpoint (str): Base endpoint URL
+        bucket_name (str): Bucket name
+        prefix (str): Remote prefix (e.g. current_date_plus_random)
+        max_workers (int): Number of parallel uploads
+    """
+    logger = logging.getLogger(__name__)
+    upload_tasks = []
+    for root, _, files in os.walk(local_zarr_path):
+        for file_name in files:
+            local_path = os.path.join(root, file_name)
+            rel_path = os.path.relpath(local_path, local_zarr_path)
+            url = f"{endpoint}/{bucket_name}/{prefix}/{rel_path}"
+            upload_tasks.append((local_path, url))
+
+    # Move .zmetadata to the end of the upload list
+    upload_tasks.sort(key=lambda x: x[0].endswith(".zmetadata"))
+
+    logger.info(
+        f"Uploading {len(upload_tasks)} files from {local_zarr_path}"
+        f"to {endpoint}/{bucket_name}/{prefix}/"
+    )
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(upload_file, path, url, auth): (path, url)
+            for path, url in upload_tasks
+        }
+        for future in as_completed(futures):
+            path, url = futures[future]
+            try:
+                future.result()
+                logger.info(f"Uploaded: {os.path.relpath(path, local_zarr_path)}")
+            except Exception as e:
+                logger.info(f"Failed: {os.path.relpath(path, local_zarr_path)} — {e}")
+    logger.info("Zarr uploaded successfully.")
