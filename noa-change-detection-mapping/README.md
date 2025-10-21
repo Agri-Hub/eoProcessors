@@ -14,7 +14,7 @@ The NOAChDM processor can be executed as:
 
 1. Use your favorite flavor of virtual environment, e.g. conda:
     - Create/activate the environment:
-        - Execute `conda create -n noa-chdm python==3.11.12`
+        - Execute `conda create -n noa-chdm python==3.11.14`
         - Execute `conda activate noa-chdm`
 2. Then:
 
