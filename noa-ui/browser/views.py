@@ -2,23 +2,62 @@ import requests
 import json
 import os
 import re
-
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db import connection
-
-# from utils.geo_utils import bbox_to_polygon
-
-# from django.core.serializers.json import DjangoJSONEncoder
+from django.contrib.auth.decorators import login_required
+from django.views.generic import CreateView
+from django.urls import reverse_lazy
+from browser.forms import NoaUserCreationForm
 
 API_BASE_URL = "http://10.201.40.192:30080/api/SatelliteProduct/GetAll"
 API_URL = "http://10.201.40.192:30080/api"
+
+
+from django.templatetags.static import static
+
+
+class RegisterView(CreateView):
+    form_class = NoaUserCreationForm
+    template_name = "registration/register.html"
+    success_url = reverse_lazy("login")
+
+
+def proxy_quicklook(request, uuid):
+    """
+    Serve the quicklook from catalogue.dataspace,
+    falling back to a local placeholder on error.
+    """
+    catalogue_url = (
+        f"https://catalogue.dataspace.copernicus.eu/" f"odata/v1/Assets({uuid})/$value"
+    )
+    try:
+        # requests follows 301 and redirect to download.dataspace for us by default
+        resp = requests.get(catalogue_url, headers={"Accept": "image/jpeg"}, timeout=5)
+        if resp.status_code == 200:
+            # serve the real JPEG
+            return HttpResponse(
+                resp.content,
+                content_type=resp.headers.get("Content-Type", "image/jpeg"),
+            )
+    except requests.RequestException:
+        # network errors, timeouts, DNS failures, etc.
+        pass
+
+    if resp and resp.status_code == 200:
+        return HttpResponse(
+            resp.content, content_type=resp.headers.get("Content-Type", "image/jpeg")
+        )
+
+    return HttpResponse(None, content_type="image/png")
 
 
 def map_view(request):
     return render(request, "base.html")
 
 
+@login_required
 def results(request):
     """
     Handles the form submission, queries `pgstac`, and renders results.
@@ -215,6 +254,7 @@ def _bbox_to_polygon(xmin, ymin, xmax, ymax):
     return polygon
 
 
+@login_required
 def submit_order(request):
     if request.method == "POST":
         item_ids_json = request.POST.get("item_ids", "[]")
@@ -256,6 +296,7 @@ def submit_order(request):
             return JsonResponse({"error": "Internal error"}, status=500)
 
 
+@login_required
 def user_dashboard(request, file_path="responses.json"):
 
     try:
@@ -339,8 +380,6 @@ def update_json_file(
                 print("Existing JSON file is empty or corrupted. Starting fresh.")
 
     data[response_data] = {"product-ids": product_ids, "order-type": order_type}
-
-    print("Data:", data)
 
     with open(file_path, "w") as json_file:
         json.dump(data, json_file, indent=4)
