@@ -8,4 +8,4 @@ psycopg==3.2.3
 pytest==8.1.1
 pytest-cov==4.1.0
 shapely==2.1.1
-torch==2.7.1
+torch==2.8.0
